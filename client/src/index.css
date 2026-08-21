@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-700 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500
+           text-white font-medium text-sm transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950
+           disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700
+           text-gray-200 font-medium text-sm transition-all duration-200 border border-gray-700 hover:border-gray-600
+           focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-950
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-gray-200
+           hover:bg-gray-800 text-sm transition-all duration-150;
+  }
+
+  .card {
+    @apply bg-gray-900 border border-gray-800 rounded-2xl;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100
+           placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500
+           transition-colors duration-200 text-sm;
+  }
+
+  .thinking-dot {
+    @apply w-2 h-2 rounded-full bg-brand-400;
+    animation: thinking 1.4s ease-in-out infinite;
+  }
+
+  .thinking-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  .thinking-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+}
