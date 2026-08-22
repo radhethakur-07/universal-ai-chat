@@ -36,13 +36,12 @@ userSchema.methods.comparePassword = async function (candidatePassword: string):
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Never return password in JSON
+// Never return password in JSON — cast to Record to avoid strict IUser typing
 userSchema.set('toJSON', {
   transform: (_doc, ret) => {
-    ret['password'] = undefined;
+    (ret as Record<string, unknown>)['password'] = undefined;
     return ret;
   },
 });
-
 
 export const User = mongoose.model<IUser>('User', userSchema);

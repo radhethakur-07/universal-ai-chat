@@ -1,11 +1,12 @@
 import mongoose from 'mongoose';
 import { DataAdapter } from './DataAdapter';
 import { QueryParams, UpdateParams } from '../validators/schemas';
-import logger from '../utils/logger';
 
 const ALLOWED_ENTITIES = ['orders', 'customers', 'products', 'invoices'];
 
-function getModel(entity: string): mongoose.Model<mongoose.Document> {
+// Use Model<any> to avoid Mongoose generic incompatibility with mongoose.model()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getModel(entity: string): mongoose.Model<any> {
   const entityMap: Record<string, string> = {
     orders: 'Order',
     customers: 'Customer',
@@ -16,7 +17,8 @@ function getModel(entity: string): mongoose.Model<mongoose.Document> {
   if (!modelName) {
     throw new Error(`Entity '${entity}' is not registered`);
   }
-  return mongoose.model(modelName);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return mongoose.model<any>(modelName);
 }
 
 function buildMongoFilter(filters?: QueryParams['filters']): Record<string, unknown> {
@@ -66,7 +68,7 @@ export class MongoDBAdapter implements DataAdapter {
       throw new Error(`Entity '${params.entity}' is not allowed`);
     }
     const model = getModel(params.entity);
-    const idField = params.entity.toLowerCase().slice(0, -1) + 'Id'; // orderId, customerId, etc.
+    const idField = params.entity.toLowerCase().slice(0, -1) + 'Id';
     const doc = await model.findOneAndUpdate(
       { [idField]: params.recordId },
       { $set: params.updates },
@@ -98,9 +100,11 @@ export class MongoDBAdapter implements DataAdapter {
       throw new Error(`Entity '${entity}' is not allowed`);
     }
     const model = getModel(entity);
-    return model.aggregate(pipeline as mongoose.PipelineStage[]) as Promise<Record<string, unknown>[]>;
+    // Double-cast via unknown to safely convert our generic pipeline to Mongoose's PipelineStage[]
+    const stages = pipeline as unknown as mongoose.PipelineStage[];
+    const result = await model.aggregate(stages);
+    return result as Record<string, unknown>[];
   }
-
 
   async findById(entity: string, id: string): Promise<Record<string, unknown> | null> {
     if (!ALLOWED_ENTITIES.includes(entity.toLowerCase())) {
