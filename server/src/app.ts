@@ -10,6 +10,7 @@ import chatRoutes from './routes/chat';
 import conversationRoutes from './routes/conversations';
 import projectRoutes from './routes/projects';
 import healthRoutes from './routes/health';
+import seedRoutes from './routes/seed';
 import logger from './utils/logger';
 
 const app = express();
@@ -56,6 +57,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/seed', seedRoutes);
 
 // Error handling
 app.use(notFound);
