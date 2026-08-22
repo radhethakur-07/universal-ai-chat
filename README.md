@@ -165,7 +165,7 @@ This creates:
 - **15 products** (electronics, furniture)
 - **30 orders** with realistic data
 - **25 invoices** linked to orders
-- **1 demo user**: `demo@devdynasty.in` / `Demo@1234`
+- **1 demo user**: `demo@devdynasty.in` / `DevDynasty@SIH2026`
 - **1 E-Commerce Demo project**
 
 ---

@@ -96,6 +96,7 @@ Gemini receives result → generates natural language response
 | `get_analytics` | Run aggregation pipeline for charts |
 | `run_function` | Execute a registered business function |
 | `get_record` | Fetch a single record by ID |
+| `track_shipment` | Mock external shipping API (e.g. Delhivery/Shiprocket) |
 
 ---
 

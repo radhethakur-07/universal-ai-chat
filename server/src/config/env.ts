@@ -14,6 +14,9 @@ export const env = {
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
   chatRateLimitMax: parseInt(process.env.CHAT_RATE_LIMIT_MAX || '30', 10),
+  brevoApiKey: process.env.BREVO_API_KEY || '',
+  brevoSenderEmail: process.env.BREVO_SENDER_EMAIL || 'noreply@devdynasty.in',
+  brevoSenderName: process.env.BREVO_SENDER_NAME || 'Universal AI',
 } as const;
 
 export function validateEnv(): void {

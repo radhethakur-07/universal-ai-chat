@@ -33,7 +33,7 @@ export default function LoginPage() {
 
   const fillDemo = () => {
     setEmail('demo@devdynasty.in');
-    setPassword('Demo@1234');
+    setPassword('DevDynasty@SIH2026');
   };
 
   return (
@@ -131,7 +131,7 @@ export default function LoginPage() {
               Use Demo Credentials
             </button>
             <p className="text-center text-gray-600 text-xs mt-2">
-              demo@devdynasty.in / Demo@1234
+              demo@devdynasty.in / DevDynasty@SIH2026
             </p>
           </div>
 

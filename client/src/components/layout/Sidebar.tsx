@@ -5,15 +5,18 @@ import {
   FolderOpen,
   Zap,
   X,
-  ChevronRight,
   Database,
   BarChart2,
   RefreshCw,
   Search,
   HelpCircle,
+  Truck,
+  LogOut,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '../../store/chatStore';
 import { useProjectStore } from '../../store/projectStore';
+import { useAuthStore } from '../../store/authStore';
 import { conversationService } from '../../services/conversationService';
 import toast from 'react-hot-toast';
 
@@ -27,24 +30,32 @@ const capabilities = [
   { icon: Search, label: 'Query Data', desc: 'Filter, sort and retrieve records' },
   { icon: RefreshCw, label: 'Update Records', desc: 'Mutation with confirmation' },
   { icon: BarChart2, label: 'Analytics', desc: 'Charts and visualizations' },
-  { icon: Zap, label: 'Run Functions', desc: 'Registered business functions' },
-  { icon: HelpCircle, label: 'Answer Questions', desc: 'Natural language answers' },
+  { icon: Zap, label: 'Run Functions', desc: 'Registered business summaries' },
+  { icon: Truck, label: 'Track Shipment', desc: 'Delivery tracking API' },
+  { icon: HelpCircle, label: 'Answer Questions', desc: 'Natural language Q&A' },
 ];
 
 export default function Sidebar({ open, onClose, onSelectConversation }: Props) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
   const {
     conversations,
     activeConversationId,
     setActiveConversation,
     setMessages,
     removeConversation,
-    addConversation,
   } = useChatStore();
   const { selectedProject } = useProjectStore();
 
   const handleNewChat = () => {
     setActiveConversation(null);
     setMessages([]);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+    toast.success('Logged out successfully');
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -133,6 +144,7 @@ export default function Sidebar({ open, onClose, onSelectConversation }: Props) 
                     <button
                       onClick={(e) => handleDelete(e, conv._id)}
                       className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all p-0.5 rounded"
+                      title="Delete conversation"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -176,11 +188,31 @@ export default function Sidebar({ open, onClose, onSelectConversation }: Props) 
             </div>
           </div>
 
-          {/* Footer */}
+          {/* Footer — Account with Logout */}
           <div className="p-3 border-t border-gray-800 flex-shrink-0">
-            <div className="flex items-center gap-2 px-2">
-              <Database className="w-3.5 h-3.5 text-gray-600" />
-              <span className="text-xs text-gray-600">v1.0 · Dev Dynasty · SIH 2026</span>
+            {user && (
+              <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-800/60 transition-colors group mb-1">
+                <div className="w-7 h-7 bg-brand-600/20 border border-brand-500/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-brand-400">
+                    {user.name?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-300 truncate">{user.name}</p>
+                  <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Sign out"
+                  className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-2 px-2 pt-1 text-[11px] text-gray-600">
+              <Database className="w-3 h-3 text-gray-600" />
+              <span>Dev Dynasty · SIH 2026 · PS12</span>
             </div>
           </div>
         </div>

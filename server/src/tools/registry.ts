@@ -3,6 +3,7 @@ import { analyticsParamsSchema, functionParamsSchema, queryParamsSchema, updateP
 import { v4 as uuidv4 } from 'uuid';
 import { ChartResponse, TableResponse } from '../types';
 import logger from '../utils/logger';
+import { trackOrder } from '../services/shippingService';
 
 const adapter = new MongoDBAdapter();
 
@@ -164,6 +165,13 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
     const { entity, recordId } = args as { entity: string; recordId: string };
     const record = await adapter.findById(entity, recordId);
     return { success: !!record, record };
+  },
+
+  async track_shipment(args, _userId, _projectId) {
+    const { orderId } = args as { orderId: string };
+    if (!orderId) throw new Error('orderId is required');
+    const status = await trackOrder(orderId);
+    return { success: true, status };
   },
 };
 

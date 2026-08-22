@@ -1,14 +1,31 @@
 import { runGeminiChat, GeminiMessage } from '../ai/geminiClient';
 import { buildSystemPrompt } from '../ai/systemPrompt';
 import { toolHandlers } from '../tools/registry';
-import { Project } from '../models/Project';
 import { Conversation } from '../models/Conversation';
 import { AuditLog } from '../models/AuditLog';
 import { ChatResponse } from '../types';
 import logger from '../utils/logger';
 import { chatMessageSchema } from '../validators/schemas';
+import {
+  assertProjectAccess,
+  assertCollectionOperation,
+  getAllowedEntities,
+} from '../utils/projectAuth';
 
 const ALLOWED_TOOLS = new Set(Object.keys(toolHandlers));
+
+// Maps tool names to the required collection operation type
+const TOOL_OPERATION_MAP: Record<string, 'read' | 'update' | 'create' | 'delete'> = {
+  query_data: 'read',
+  get_record: 'read',
+  get_analytics: 'read',
+  update_data: 'update',
+  run_function: 'read',
+  track_shipment: 'read',
+};
+
+// Tools that don't operate on a specific collection (skip collection auth check)
+const ENTITY_LESS_TOOLS = new Set(['run_function', 'track_shipment']);
 
 function formatToolResultForUI(toolName: string, result: unknown): ChatResponse | null {
   const r = result as Record<string, unknown>;
@@ -28,16 +45,35 @@ function formatToolResultForUI(toolName: string, result: unknown): ChatResponse 
   if (toolName === 'query_data' && r.success && Array.isArray(r.data)) {
     const data = r.data as Record<string, unknown>[];
     if (data.length === 0) return null;
-    const columns = Object.keys(data[0])
-      .filter(k => k !== '__v' && k !== '_id')
+    const columns = Object.keys(data[0]!)
+      .filter((k) => k !== '__v' && k !== '_id')
       .slice(0, 12)
-      .map(k => ({ key: k, label: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1') }));
+      .map((k) => ({
+        key: k,
+        label: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1'),
+      }));
     return {
       type: 'table',
       title: `${r.entity as string} Results`,
       columns,
       rows: data,
-      summary: `Found ${r.count} records`,
+      summary: `Found ${r.count as number} records`,
+    };
+  }
+
+  if (toolName === 'get_record' && r.success && r.record) {
+    const rec = r.record as Record<string, unknown>;
+    const columns = Object.keys(rec)
+      .filter((k) => k !== '__v' && k !== '_id')
+      .map((k) => ({
+        key: k,
+        label: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1'),
+      }));
+    return {
+      type: 'table',
+      title: 'Record Details',
+      columns,
+      rows: [rec],
     };
   }
 
@@ -56,16 +92,22 @@ function formatToolResultForUI(toolName: string, result: unknown): ChatResponse 
 
   if (toolName === 'run_function' && r.result) {
     const result = r.result as Record<string, unknown>;
-    // If result has array data, show as table
-    const arrayKey = Object.keys(result).find(k => Array.isArray(result[k]));
-    if (arrayKey && Array.isArray(result[arrayKey]) && (result[arrayKey] as unknown[]).length > 0) {
+    const arrayKey = Object.keys(result).find((k) => Array.isArray(result[k]));
+    if (
+      arrayKey &&
+      Array.isArray(result[arrayKey]) &&
+      (result[arrayKey] as unknown[]).length > 0
+    ) {
       const arr = result[arrayKey] as Record<string, unknown>[];
-      const columns = Object.keys(arr[0])
-        .filter(k => k !== '_id')
-        .map(k => ({ key: k, label: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1') }));
+      const columns = Object.keys(arr[0]!)
+        .filter((k) => k !== '_id')
+        .map((k) => ({
+          key: k,
+          label: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1'),
+        }));
       return {
         type: 'table',
-        title: `${r.functionName} Results`,
+        title: `${r.functionName as string} Results`,
         columns,
         rows: arr,
       };
@@ -83,15 +125,19 @@ export async function processChat(
   const validated = chatMessageSchema.parse(input);
   const startTime = Date.now();
 
-  // Load project with context
-  const project = await Project.findById(validated.projectId);
-  if (!project) throw new Error('Project not found');
+  // ✅ SECURITY: Verify user has access to this project (owner or member)
+  const project = await assertProjectAccess(userId, validated.projectId);
+  const allowedEntities = getAllowedEntities(project);
 
   const systemPrompt = buildSystemPrompt(project);
 
-  // Load or create conversation
+  // Load or create conversation — scoped to user + project
   let conversation = validated.conversationId
-    ? await Conversation.findOne({ _id: validated.conversationId, user: userId })
+    ? await Conversation.findOne({
+        _id: validated.conversationId,
+        user: userId,
+        project: project._id,
+      })
     : null;
 
   if (!conversation) {
@@ -103,7 +149,7 @@ export async function processChat(
     });
   }
 
-  // Build history for Gemini (last 10 message pairs)
+  // Build Gemini history (last 20 messages = 10 pairs for multi-turn context)
   const history: GeminiMessage[] = [];
   const recentMessages = conversation.messages.slice(-20);
   for (const msg of recentMessages) {
@@ -113,7 +159,6 @@ export async function processChat(
     });
   }
 
-  // Track UI response data from tool calls
   let uiResponseData: ChatResponse | null = null;
   const toolsUsed: string[] = [];
 
@@ -122,14 +167,26 @@ export async function processChat(
     history,
     validated.message,
     async (toolName, args) => {
+      // ✅ SECURITY: Only allow registered tools
       if (!ALLOWED_TOOLS.has(toolName)) {
         throw new Error(`Tool '${toolName}' is not registered`);
       }
-      const handler = toolHandlers[toolName];
+
+      // ✅ SECURITY: Check collection-level operation permission
+      if (!ENTITY_LESS_TOOLS.has(toolName)) {
+        const entity = ((args.entity as string | undefined) || '').toLowerCase();
+        if (!allowedEntities.includes(entity)) {
+          throw new Error(`Entity '${entity}' is not available in this project`);
+        }
+        const operation = TOOL_OPERATION_MAP[toolName] ?? 'read';
+        assertCollectionOperation(project, entity, operation);
+      }
+
+      const handler = toolHandlers[toolName]!;
       toolsUsed.push(toolName);
       const result = await handler(args, userId, validated.projectId);
 
-      // Capture UI response data from the first significant result
+      // Capture the first meaningful UI response
       if (!uiResponseData) {
         const formatted = formatToolResultForUI(toolName, result);
         if (formatted) uiResponseData = formatted;
@@ -151,7 +208,6 @@ export async function processChat(
 
   const processingTime = Date.now() - startTime;
 
-  // Save messages
   conversation.messages.push({
     role: 'user',
     content: validated.message,
@@ -167,15 +223,20 @@ export async function processChat(
     timestamp: new Date(),
   });
 
-
-  // Auto-title first message
+  // Auto-title on first exchange
   if (conversation.messages.length <= 2) {
     conversation.title = validated.message.slice(0, 60);
   }
 
   await conversation.save();
 
-  logger.info('Chat processed', { userId, conversationId: conversation._id, toolsUsed, processingTime, requestId });
+  logger.info('Chat processed', {
+    userId,
+    conversationId: conversation._id,
+    toolsUsed,
+    processingTime,
+    requestId,
+  });
 
   const responseType = uiResponseData ? (uiResponseData as { type: string }).type : 'text';
 
@@ -188,4 +249,3 @@ export async function processChat(
     processingTime,
   };
 }
-

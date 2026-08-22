@@ -142,7 +142,7 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
   const demoUser = new User({
     name: 'Demo User',
     email: 'demo@devdynasty.in',
-    password: 'Demo@1234',
+    password: 'DevDynasty@SIH2026',
     role: 'admin',
     isActive: true,
   });
@@ -223,10 +223,15 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
   };
 }
 
-// CLI runner (for npm run seed)
-if (require.main === module) {
+// CLI runner (for npm run seed or direct execution)
+const isDirectRun = (typeof require !== 'undefined' && require.main === module) || (process.argv[1] && process.argv[1].includes('seed'));
+if (isDirectRun) {
   import('dotenv/config').then(async () => {
     const uri = process.env.MONGODB_URI || '';
+    if (!uri) {
+      console.error('MONGODB_URI is not defined');
+      process.exit(1);
+    }
     await mongoose.connect(uri);
     await runSeed();
     await mongoose.disconnect();
