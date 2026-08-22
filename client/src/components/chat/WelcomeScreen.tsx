@@ -17,7 +17,7 @@ export default function WelcomeScreen() {
   const { selectedProject } = useProjectStore();
 
   const handlePrompt = (text: string) => {
-    window.dispatchEvent(new CustomEvent('fill-input', { detail: text }));
+    window.dispatchEvent(new CustomEvent('send-prompt', { detail: text }));
   };
 
   return (
@@ -62,7 +62,7 @@ export default function WelcomeScreen() {
         </div>
 
         <p className="text-gray-700 text-xs">
-          Press Enter to send · Shift+Enter for new line · Powered by Gemini
+          Click any prompt above to run it instantly · Enter to send
         </p>
       </div>
     </div>

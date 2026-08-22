@@ -26,8 +26,12 @@ export default function ChatPage() {
       .getProjects()
       .then(({ projects }) => {
         setProjects(projects);
-        if (projects.length > 0 && projects[0]) {
-          setSelectedProject(projects[0]);
+        if (projects.length > 0) {
+          const currentSelected = useProjectStore.getState().selectedProject;
+          const stillExists = currentSelected && projects.find((p) => p._id === currentSelected._id);
+          if (!stillExists && projects[0]) {
+            setSelectedProject(projects[0]);
+          }
         }
       })
       .catch(() => {

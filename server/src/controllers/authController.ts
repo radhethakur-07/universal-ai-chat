@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
+import { Project } from '../models/Project';
 import { env } from '../config/env';
 import { loginSchema, registerSchema } from '../validators/schemas';
 import logger from '../utils/logger';
@@ -71,6 +72,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const user = await User.create(body);
+
+    // Automatically grant access to demo project
+    await Project.updateMany(
+      { slug: 'ecommerce-demo' },
+      { $addToSet: { members: user._id } }
+    );
+
     const token = signToken(user._id.toString(), user.email);
     logger.info('User registered', { userId: user._id });
     res.status(201).json({

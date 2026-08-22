@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, KeyboardEvent, useCallback } from 'react';
 import { Send, Loader2, Zap } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { chatService } from '../../services/chatService';
@@ -28,28 +28,9 @@ export default function ChatInput() {
     setActiveConversation,
     addConversation,
     conversations,
-    messages,
   } = useChatStore();
 
   const { selectedProject } = useProjectStore();
-
-  // Listen for fill-input events from WelcomeScreen
-  useEffect(() => {
-    const handler = (e: Event) => {
-      setInput((e as CustomEvent<string>).detail);
-      textareaRef.current?.focus();
-    };
-    window.addEventListener('fill-input', handler);
-    return () => window.removeEventListener('fill-input', handler);
-  }, []);
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
-    }
-  }, [input]);
 
   const cycleLoadingStatus = () => {
     statusIndexRef.current = 0;
@@ -74,72 +55,109 @@ export default function ChatInput() {
     }
   };
 
-  const sendMessage = async () => {
-    const text = input.trim();
-    if (!text || isLoading || !selectedProject) return;
+  const sendMessage = useCallback(
+    async (customText?: string) => {
+      const text = (customText || input).trim();
+      if (!text || isLoading || !selectedProject) return;
 
-    setInput('');
-    const userMsgId = uuidv4();
+      setInput('');
+      const userMsgId = uuidv4();
 
-    addMessage({
-      id: userMsgId,
-      role: 'user',
-      content: text,
-      timestamp: new Date().toISOString(),
-    });
-
-    cycleLoadingStatus();
-
-    try {
-      const response = await chatService.sendMessage({
-        message: text,
-        conversationId: activeConversationId || undefined,
-        projectId: selectedProject._id,
+      addMessage({
+        id: userMsgId,
+        role: 'user',
+        content: text,
+        timestamp: new Date().toISOString(),
       });
 
-      stopCycling();
+      cycleLoadingStatus();
 
-      // Update active conversation
-      if (!activeConversationId && response.conversationId) {
-        setActiveConversation(response.conversationId);
-        const exists = conversations.find((c) => c._id === response.conversationId);
-        if (!exists) {
-          addConversation({
-            _id: response.conversationId,
-            title: text.slice(0, 60),
-            project: selectedProject._id,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
+      try {
+        const response = await chatService.sendMessage({
+          message: text,
+          conversationId: activeConversationId || undefined,
+          projectId: selectedProject._id,
+        });
+
+        stopCycling();
+
+        // Update active conversation
+        if (!activeConversationId && response.conversationId) {
+          setActiveConversation(response.conversationId);
+          const exists = conversations.find((c) => c._id === response.conversationId);
+          if (!exists) {
+            addConversation({
+              _id: response.conversationId,
+              title: text.slice(0, 60),
+              project: selectedProject._id,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
         }
-      }
 
-      addMessage({
-        id: uuidv4(),
-        role: 'assistant',
-        content: response.message,
-        responseType: response.responseType,
-        responseData: response.responseData,
-        toolsUsed: response.toolsUsed,
-        processingTime: response.processingTime,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err: unknown) {
-      stopCycling();
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      addMessage({
-        id: uuidv4(),
-        role: 'assistant',
-        content:
-          axiosErr?.response?.data?.message ||
-          "I encountered an error processing your request. Please try again.",
-        timestamp: new Date().toISOString(),
-      });
-      toast.error('Request failed');
-    } finally {
-      setLoading(false, '');
+        addMessage({
+          id: uuidv4(),
+          role: 'assistant',
+          content: response.message,
+          responseType: response.responseType,
+          responseData: response.responseData,
+          toolsUsed: response.toolsUsed,
+          processingTime: response.processingTime,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: unknown) {
+        stopCycling();
+        const axiosErr = err as { response?: { data?: { message?: string } } };
+        addMessage({
+          id: uuidv4(),
+          role: 'assistant',
+          content:
+            axiosErr?.response?.data?.message ||
+            'I encountered an error processing your request. Please try again.',
+          timestamp: new Date().toISOString(),
+        });
+        toast.error('Request failed');
+      } finally {
+        setLoading(false, '');
+      }
+    },
+    [input, isLoading, selectedProject, activeConversationId, conversations, addMessage, setLoading, setActiveConversation, addConversation]
+  );
+
+  // Listen for fill-input, send-prompt, and focus-input events
+  useEffect(() => {
+    const fillHandler = (e: Event) => {
+      setInput((e as CustomEvent<string>).detail);
+      textareaRef.current?.focus();
+    };
+    const sendHandler = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail;
+      if (text) {
+        sendMessage(text);
+      }
+    };
+    const focusHandler = () => {
+      textareaRef.current?.focus();
+    };
+
+    window.addEventListener('fill-input', fillHandler);
+    window.addEventListener('send-prompt', sendHandler);
+    window.addEventListener('focus-input', focusHandler);
+    return () => {
+      window.removeEventListener('fill-input', fillHandler);
+      window.removeEventListener('send-prompt', sendHandler);
+      window.removeEventListener('focus-input', focusHandler);
+    };
+  }, [sendMessage]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
     }
-  };
+  }, [input]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -178,7 +196,7 @@ export default function ChatInput() {
             rows={1}
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || isLoading || !selectedProject}
             className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-gray-800 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
             title="Send message (Enter)"

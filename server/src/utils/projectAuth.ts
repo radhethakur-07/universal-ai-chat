@@ -2,7 +2,7 @@ import { Project } from '../models/Project';
 import mongoose from 'mongoose';
 
 /**
- * Asserts that a user has access to a project (is owner or member).
+ * Asserts that a user has access to a project (is owner, member, or default demo project).
  * Returns the project if access is granted, throws 403 if not.
  */
 export async function assertProjectAccess(
@@ -22,6 +22,7 @@ export async function assertProjectAccess(
     $or: [
       { owner: new mongoose.Types.ObjectId(userId) },
       { members: new mongoose.Types.ObjectId(userId) },
+      { slug: 'ecommerce-demo' },
     ],
   });
 

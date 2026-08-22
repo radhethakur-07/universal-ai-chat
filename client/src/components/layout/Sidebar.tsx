@@ -50,6 +50,9 @@ export default function Sidebar({ open, onClose, onSelectConversation }: Props) 
   const handleNewChat = () => {
     setActiveConversation(null);
     setMessages([]);
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('focus-input'));
+    }, 50);
   };
 
   const handleLogout = () => {
