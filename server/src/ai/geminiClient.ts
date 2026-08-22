@@ -177,11 +177,11 @@ export interface GeminiMessage {
 }
 
 function getValidModelName(): string {
-  const m = (env.geminiModel || '').trim().toLowerCase();
-  if (m === 'gemini-2.0-flash' || m === 'gemini-1.5-flash' || m === 'gemini-1.5-pro') {
+  const m = (env.geminiModel || '').trim();
+  if (m && m !== 'gemini-2.0-flash') {
     return m;
   }
-  return 'gemini-2.0-flash';
+  return 'gemini-3.6-flash';
 }
 
 export async function runGeminiChat(
