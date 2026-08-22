@@ -39,7 +39,8 @@ userSchema.methods.comparePassword = async function (candidatePassword: string):
 // Never return password in JSON — cast to Record to avoid strict IUser typing
 userSchema.set('toJSON', {
   transform: (_doc, ret) => {
-    (ret as Record<string, unknown>)['password'] = undefined;
+    (ret as unknown as Record<string, unknown>)['password'] = undefined;
+
     return ret;
   },
 });
