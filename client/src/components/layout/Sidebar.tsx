@@ -13,11 +13,13 @@ import {
   Truck,
   LogOut,
 } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '../../store/chatStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useAuthStore } from '../../store/authStore';
 import { conversationService } from '../../services/conversationService';
+import DataImportModal from '../chat/DataImportModal';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -38,6 +40,7 @@ const capabilities = [
 export default function Sidebar({ open, onClose, onSelectConversation }: Props) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const {
     conversations,
     activeConversationId,
@@ -159,13 +162,31 @@ export default function Sidebar({ open, onClose, onSelectConversation }: Props) 
             {/* Current Project */}
             {selectedProject && (
               <div className="mx-3 mb-3 p-3 bg-gray-800/50 border border-gray-700/50 rounded-xl">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <FolderOpen className="w-3.5 h-3.5 text-brand-400" />
-                  <p className="text-xs font-semibold text-white">{selectedProject.name}</p>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="w-3.5 h-3.5 text-brand-400" />
+                    <p className="text-xs font-semibold text-white truncate max-w-[130px]">
+                      {selectedProject.name}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setImportModalOpen(true)}
+                    className="p-1 hover:bg-brand-500/20 rounded text-brand-400 hover:text-brand-300 transition-colors"
+                    title="Add or import custom data"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">
+                <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mb-2">
                   {selectedProject.description}
                 </p>
+                <button
+                  onClick={() => setImportModalOpen(true)}
+                  className="w-full py-1 px-2 bg-brand-600/10 hover:bg-brand-600/20 border border-brand-500/25 rounded-lg text-[11px] text-brand-300 hover:text-white flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <PlusCircle className="w-3 h-3" />
+                  Feed Custom Data
+                </button>
               </div>
             )}
 
@@ -220,6 +241,11 @@ export default function Sidebar({ open, onClose, onSelectConversation }: Props) 
           </div>
         </div>
       </aside>
+
+      <DataImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+      />
     </>
   );
 }

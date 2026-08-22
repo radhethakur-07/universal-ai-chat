@@ -1,9 +1,9 @@
 import { MongoDBAdapter } from '../adapters/MongoDBAdapter';
 import { analyticsParamsSchema, functionParamsSchema, queryParamsSchema, updateParamsSchema } from '../validators/schemas';
 import { v4 as uuidv4 } from 'uuid';
-import { ChartResponse, TableResponse } from '../types';
 import logger from '../utils/logger';
 import { trackOrder } from '../services/shippingService';
+import { z } from 'zod';
 
 const adapter = new MongoDBAdapter();
 
@@ -27,10 +27,15 @@ export function cleanExpiredConfirmations() {
 // Clean every 5 minutes
 setInterval(cleanExpiredConfirmations, 5 * 60 * 1000);
 
+export const createDataSchema = z.object({
+  entity: z.string().min(1),
+  data: z.record(z.unknown()),
+});
+
 export const toolHandlers: Record<string, (args: Record<string, unknown>, userId: string, projectId: string) => Promise<unknown>> = {
-  async query_data(args, _userId, _projectId) {
+  async query_data(args, _userId, projectId) {
     const params = queryParamsSchema.parse(args);
-    const rows = await adapter.query(params);
+    const rows = await adapter.query(params, projectId);
     return {
       success: true,
       entity: params.entity,
@@ -39,9 +44,47 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
     };
   },
 
+  async create_data(args, userId, projectId) {
+    const params = createDataSchema.parse(args);
+    // Auto-generate IDs if missing
+    const data = { ...params.data };
+    const entity = params.entity.toLowerCase();
+    if (entity === 'products' && !data.productId) {
+      data.productId = `PROD-${Date.now().toString().slice(-4)}`;
+      if (!data.sku) data.sku = `SKU-${Date.now().toString().slice(-6)}`;
+      if (!data.subcategory) data.subcategory = 'General';
+      if (!data.costPrice) data.costPrice = typeof data.price === 'number' ? Math.round((data.price as number) * 0.7) : 0;
+    } else if (entity === 'customers' && !data.customerId) {
+      data.customerId = `CUST-${Date.now().toString().slice(-4)}`;
+      if (!data.city) data.city = 'Unknown';
+      if (!data.state) data.state = 'Unknown';
+      if (!data.phone) data.phone = '+91-0000000000';
+    } else if (entity === 'orders' && !data.orderId) {
+      data.orderId = `ORD-${Date.now().toString().slice(-4)}`;
+      if (!data.region) data.region = 'Central';
+      if (!data.city) data.city = 'Delhi';
+      if (!data.state) data.state = 'Delhi';
+      if (!data.amount && data.totalAmount) data.amount = data.totalAmount;
+      if (!data.totalAmount && data.amount) data.totalAmount = data.amount;
+    } else if (entity === 'invoices' && !data.invoiceId) {
+      data.invoiceId = `INV-${Date.now().toString().slice(-4)}`;
+      if (!data.dueDate) data.dueDate = new Date();
+      if (!data.orderId) data.orderId = 'ORD-000';
+      if (!data.customerId) data.customerId = 'CUST-000';
+      if (!data.customerName) data.customerName = 'General';
+    }
+
+    const created = await adapter.create(entity, data, projectId, userId);
+    return {
+      success: true,
+      entity: params.entity,
+      record: created,
+      message: `Successfully added new record to ${params.entity}`,
+    };
+  },
+
   async update_data(args, userId, projectId) {
     const params = updateParamsSchema.parse(args);
-    // Instead of updating directly, create a confirmation request
     const actionId = uuidv4();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
     pendingConfirmations.set(actionId, {
@@ -63,7 +106,7 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
     };
   },
 
-  async get_analytics(args, _userId, _projectId) {
+  async get_analytics(args, _userId, projectId) {
     const params = analyticsParamsSchema.parse(args);
     const matchStage: Record<string, unknown> = {};
     if (params.filters && params.filters.length > 0) {
@@ -90,7 +133,7 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
     pipeline.push({ $sort: { value: -1 } });
     pipeline.push({ $limit: params.limit ?? 10 });
 
-    const raw = await adapter.aggregate(params.entity, pipeline);
+    const raw = await adapter.aggregate(params.entity, pipeline, projectId);
     const data = raw.map((r) => ({
       [params.groupBy]: r._id,
       value: typeof r.value === 'number' ? Math.round((r.value as number) * 100) / 100 : r.value,
@@ -107,17 +150,17 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
     };
   },
 
-  async run_function(args, _userId, _projectId) {
+  async run_function(args, _userId, projectId) {
     const params = functionParamsSchema.parse(args);
     const fnArgs = params.args ?? {};
 
     switch (params.functionName) {
       case 'getOrderSummary': {
-        const total = await adapter.count('orders');
-        const pending = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'pending' }]);
-        const shipped = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'shipped' }]);
-        const delivered = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'delivered' }]);
-        const cancelled = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'cancelled' }]);
+        const total = await adapter.count('orders', [], projectId);
+        const pending = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'pending' }], projectId);
+        const shipped = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'shipped' }], projectId);
+        const delivered = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'delivered' }], projectId);
+        const cancelled = await adapter.count('orders', [{ field: 'status', operator: 'eq', value: 'cancelled' }], projectId);
         return { functionName: 'getOrderSummary', result: { total, pending, shipped, delivered, cancelled } };
       }
       case 'calculateInvoiceTotal': {
@@ -125,27 +168,20 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
         const filters: { field: string; operator: 'eq'; value: unknown }[] = statusFilter
           ? [{ field: 'status', operator: 'eq' as const, value: statusFilter }]
           : [];
-        const invoices = await adapter.query({ entity: 'invoices', filters, limit: 1000 });
-
+        const invoices = await adapter.query({ entity: 'invoices', filters, limit: 1000 }, projectId);
 
         const total = invoices.reduce((sum, inv) => sum + ((inv.totalAmount as number) || 0), 0);
         return { functionName: 'calculateInvoiceTotal', result: { total: Math.round(total * 100) / 100, count: invoices.length, status: statusFilter || 'all' } };
       }
       case 'getTopProducts': {
         const limit = (fnArgs.limit as number) || 5;
-        const pipeline = [
-          { $group: { _id: '$productId', productName: { $first: '$productName' }, totalRevenue: { $sum: '$totalPrice' }, totalQty: { $sum: '$quantity' } } },
-          { $sort: { totalRevenue: -1 } },
-          { $limit: limit },
-        ];
-        // Aggregate from order items - need to unwind items first
         const orderPipeline = [
           { $unwind: '$items' },
           { $group: { _id: '$items.productId', productName: { $first: '$items.productName' }, totalRevenue: { $sum: '$items.totalPrice' }, totalQty: { $sum: '$items.quantity' } } },
           { $sort: { totalRevenue: -1 } },
           { $limit: limit },
         ];
-        const result = await adapter.aggregate('orders', orderPipeline);
+        const result = await adapter.aggregate('orders', orderPipeline, projectId);
         return { functionName: 'getTopProducts', result: { products: result, limit } };
       }
       case 'calculateRevenueByRegion': {
@@ -153,7 +189,7 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
           { $group: { _id: '$region', totalRevenue: { $sum: '$totalAmount' }, orderCount: { $sum: 1 } } },
           { $sort: { totalRevenue: -1 } },
         ];
-        const result = await adapter.aggregate('orders', pipeline);
+        const result = await adapter.aggregate('orders', pipeline, projectId);
         return { functionName: 'calculateRevenueByRegion', result: { regions: result } };
       }
       default:
@@ -161,9 +197,9 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
     }
   },
 
-  async get_record(args, _userId, _projectId) {
+  async get_record(args, _userId, projectId) {
     const { entity, recordId } = args as { entity: string; recordId: string };
-    const record = await adapter.findById(entity, recordId);
+    const record = await adapter.findById(entity, recordId, projectId);
     return { success: !!record, record };
   },
 
@@ -188,10 +224,13 @@ export async function executeConfirmedAction(actionId: string, userId: string): 
     return { success: false, error: 'Confirmation expired' };
   }
   pendingConfirmations.delete(actionId);
-  const result = await adapter.update({
-    entity: pending.entity,
-    recordId: pending.recordId,
-    updates: pending.updates,
-  });
+  const result = await adapter.update(
+    {
+      entity: pending.entity,
+      recordId: pending.recordId,
+      updates: pending.updates,
+    },
+    pending.projectId
+  );
   return result;
 }

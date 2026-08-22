@@ -19,6 +19,7 @@ const TOOL_OPERATION_MAP: Record<string, 'read' | 'update' | 'create' | 'delete'
   query_data: 'read',
   get_record: 'read',
   get_analytics: 'read',
+  create_data: 'create',
   update_data: 'update',
   run_function: 'read',
   track_shipment: 'read',
@@ -64,7 +65,7 @@ function formatToolResultForUI(toolName: string, result: unknown): ChatResponse 
   if (toolName === 'get_record' && r.success && r.record) {
     const rec = r.record as Record<string, unknown>;
     const columns = Object.keys(rec)
-      .filter((k) => k !== '__v' && k !== '_id')
+      .filter((k) => k !== '__v' && k !== '_id' && k !== 'project' && k !== 'user')
       .map((k) => ({
         key: k,
         label: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1'),
@@ -74,6 +75,23 @@ function formatToolResultForUI(toolName: string, result: unknown): ChatResponse 
       title: 'Record Details',
       columns,
       rows: [rec],
+    };
+  }
+
+  if (toolName === 'create_data' && r.success && r.record) {
+    const rec = r.record as Record<string, unknown>;
+    const columns = Object.keys(rec)
+      .filter((k) => k !== '__v' && k !== '_id' && k !== 'project' && k !== 'user')
+      .map((k) => ({
+        key: k,
+        label: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1'),
+      }));
+    return {
+      type: 'table',
+      title: `Created New ${r.entity as string} Record`,
+      columns,
+      rows: [rec],
+      summary: r.message as string,
     };
   }
 

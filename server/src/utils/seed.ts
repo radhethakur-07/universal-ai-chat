@@ -7,7 +7,7 @@ import { Order } from '../models/business/Order';
 import { Invoice } from '../models/business/Invoice';
 import logger from './logger';
 
-const customers = [
+export const sampleCustomers = [
   { customerId: 'CUST-001', name: 'Arjun Sharma', email: 'arjun.sharma@email.com', phone: '+91-9876543210', city: 'Mumbai', state: 'Maharashtra', country: 'India', segment: 'enterprise' as const },
   { customerId: 'CUST-002', name: 'Priya Patel', email: 'priya.patel@email.com', phone: '+91-9876543211', city: 'Ahmedabad', state: 'Gujarat', country: 'India', segment: 'wholesale' as const },
   { customerId: 'CUST-003', name: 'Rohit Singh', email: 'rohit.singh@email.com', phone: '+91-9876543212', city: 'Delhi', state: 'Delhi', country: 'India', segment: 'retail' as const },
@@ -25,7 +25,7 @@ const customers = [
   { customerId: 'CUST-015', name: 'Kiran Rao', email: 'kiran.rao@email.com', phone: '+91-9876543224', city: 'Hyderabad', state: 'Telangana', country: 'India', segment: 'enterprise' as const },
 ];
 
-const products = [
+export const sampleProducts = [
   { productId: 'PROD-001', name: 'Laptop Pro 15', category: 'Electronics', subcategory: 'Computers', price: 65000, costPrice: 45000, stock: 50, unit: 'piece', sku: 'SKU-LAP-001', isActive: true },
   { productId: 'PROD-002', name: 'Wireless Mouse', category: 'Electronics', subcategory: 'Accessories', price: 1500, costPrice: 800, stock: 200, unit: 'piece', sku: 'SKU-MOU-002', isActive: true },
   { productId: 'PROD-003', name: 'Mechanical Keyboard', category: 'Electronics', subcategory: 'Accessories', price: 4500, costPrice: 2500, stock: 150, unit: 'piece', sku: 'SKU-KEY-003', isActive: true },
@@ -62,51 +62,105 @@ function daysAgo(n: number): Date {
   return d;
 }
 
+export const defaultProjectCollections = [
+  {
+    name: 'orders',
+    description: 'Customer orders with status tracking',
+    fields: [
+      { name: 'orderId', type: 'string', description: 'Unique order ID like ORD-001', filterable: true, sortable: true },
+      { name: 'customerName', type: 'string', description: 'Customer full name', filterable: true, sortable: true },
+      { name: 'city', type: 'string', description: 'Customer city', filterable: true, sortable: false },
+      { name: 'region', type: 'string', description: 'Region: North, South, East, West, Central', filterable: true, sortable: false },
+      { name: 'status', type: 'string', description: 'Order status: pending, confirmed, processing, shipped, delivered, cancelled', filterable: true, sortable: false },
+      { name: 'totalAmount', type: 'number', description: 'Total order amount in INR', filterable: true, sortable: true },
+      { name: 'paymentMethod', type: 'string', description: 'Payment method: cash, card, upi, netbanking, emi', filterable: true, sortable: false },
+      { name: 'createdAt', type: 'date', description: 'Order creation date', filterable: true, sortable: true },
+    ],
+    allowedOperations: ['read', 'create', 'update'],
+  },
+  {
+    name: 'customers',
+    description: 'Customer master data',
+    fields: [
+      { name: 'customerId', type: 'string', filterable: true, sortable: true },
+      { name: 'name', type: 'string', filterable: true, sortable: true },
+      { name: 'city', type: 'string', filterable: true, sortable: false },
+      { name: 'segment', type: 'string', description: 'retail, wholesale, enterprise', filterable: true, sortable: false },
+    ],
+    allowedOperations: ['read', 'create', 'update'],
+  },
+  {
+    name: 'products',
+    description: 'Product catalog',
+    fields: [
+      { name: 'productId', type: 'string', filterable: true, sortable: true },
+      { name: 'name', type: 'string', filterable: true, sortable: true },
+      { name: 'category', type: 'string', filterable: true, sortable: false },
+      { name: 'subcategory', type: 'string', filterable: true, sortable: false },
+      { name: 'price', type: 'number', filterable: true, sortable: true },
+      { name: 'stock', type: 'number', filterable: true, sortable: true },
+    ],
+    allowedOperations: ['read', 'create', 'update'],
+  },
+  {
+    name: 'invoices',
+    description: 'Invoice records linked to orders',
+    fields: [
+      { name: 'invoiceId', type: 'string', filterable: true, sortable: true },
+      { name: 'status', type: 'string', description: 'draft, sent, paid, overdue, cancelled', filterable: true, sortable: false },
+      { name: 'totalAmount', type: 'number', filterable: true, sortable: true },
+      { name: 'dueDate', type: 'date', filterable: true, sortable: true },
+    ],
+    allowedOperations: ['read', 'create', 'update'],
+  },
+];
+
+export const defaultRegisteredFunctions = [
+  { name: 'getOrderSummary', description: 'Returns total order counts by status', permission: 'orders.read', enabled: true },
+  { name: 'calculateInvoiceTotal', description: 'Calculates total invoice amount, optionally filtered by status (paid, draft, sent, overdue)', permission: 'invoices.read', enabled: true },
+  { name: 'getTopProducts', description: 'Returns top products by revenue. Optional args: {limit: number}', permission: 'orders.read', enabled: true },
+  { name: 'calculateRevenueByRegion', description: 'Calculates total revenue grouped by region', permission: 'orders.read', enabled: true },
+];
+
 /**
- * Core seed logic — can be called from startup or API route.
- * Does NOT connect/disconnect mongoose — caller is responsible for that.
+ * Seeds sample customers, products, orders, and invoices for a specific project and user.
  */
-export async function runSeed(): Promise<{ message: string; counts: Record<string, number> }> {
-  // Check if already seeded
-  const existingOrders = await Order.countDocuments();
-  if (existingOrders > 0) {
-    logger.info('Database already seeded, skipping.');
-    return { message: 'Already seeded', counts: { orders: existingOrders } };
-  }
-
-  logger.info('Starting database seed...');
-
-  // Clear collections
-  await Promise.all([
-    Customer.deleteMany({}),
-    Product.deleteMany({}),
-    Order.deleteMany({}),
-    Invoice.deleteMany({}),
-    User.deleteMany({ email: 'demo@devdynasty.in' }),
-    Project.deleteMany({ slug: 'ecommerce-demo' }),
-  ]);
-
-  // Seed customers
+export async function seedProjectData(
+  projectId: mongoose.Types.ObjectId,
+  userId: mongoose.Types.ObjectId
+): Promise<{ customers: number; products: number; orders: number; invoices: number }> {
+  // 1. Seed customers
+  const customers = sampleCustomers.map((c) => ({
+    ...c,
+    project: projectId,
+    user: userId,
+  }));
   await Customer.insertMany(customers);
-  logger.info('Customers seeded');
 
-  // Seed products
+  // 2. Seed products
+  const products = sampleProducts.map((p) => ({
+    ...p,
+    project: projectId,
+    user: userId,
+  }));
   await Product.insertMany(products);
-  logger.info('Products seeded');
 
-  // Seed orders (30)
+  // 3. Seed orders (30)
   const orders = [];
   for (let i = 1; i <= 30; i++) {
-    const customer = randomItem(customers);
-    const product = randomItem(products);
+    const customer = randomItem(sampleCustomers);
+    const product = randomItem(sampleProducts);
     const qty = randomBetween(1, 4);
     const amount = product.price * qty;
     const tax = Math.round(amount * 0.18);
     const totalAmount = amount + tax;
     const status = randomItem(orderStatuses);
-    const paymentStatus = status === 'delivered' ? 'paid' : status === 'cancelled' ? 'refunded' : randomItem(paymentStatuses);
+    const paymentStatus =
+      status === 'delivered' ? 'paid' : status === 'cancelled' ? 'refunded' : randomItem(paymentStatuses);
 
     orders.push({
+      project: projectId,
+      user: userId,
       orderId: `ORD-${String(i).padStart(3, '0')}`,
       customerId: customer.customerId,
       customerName: customer.name,
@@ -116,13 +170,15 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
       status,
       paymentStatus,
       paymentMethod: randomItem(paymentMethods),
-      items: [{
-        productId: product.productId,
-        productName: product.name,
-        quantity: qty,
-        unitPrice: product.price,
-        totalPrice: amount,
-      }],
+      items: [
+        {
+          productId: product.productId,
+          productName: product.name,
+          quantity: qty,
+          unitPrice: product.price,
+          totalPrice: amount,
+        },
+      ],
       amount,
       tax,
       totalAmount,
@@ -130,15 +186,16 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
     });
   }
   await Order.insertMany(orders);
-  logger.info('Orders seeded');
 
-  // Seed invoices (25)
+  // 4. Seed invoices (25)
   const invoiceStatuses = ['draft', 'sent', 'paid', 'overdue', 'cancelled'] as const;
   const invoices = [];
   for (let i = 1; i <= 25; i++) {
     const order = orders[i - 1] || orders[0]!;
     const status = order.paymentStatus === 'paid' ? 'paid' : randomItem(invoiceStatuses);
     invoices.push({
+      project: projectId,
+      user: userId,
       invoiceId: `INV-${String(i).padStart(3, '0')}`,
       orderId: order.orderId,
       customerId: order.customerId,
@@ -153,7 +210,34 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
     });
   }
   await Invoice.insertMany(invoices);
-  logger.info('Invoices seeded');
+
+  return {
+    customers: customers.length,
+    products: products.length,
+    orders: orders.length,
+    invoices: invoices.length,
+  };
+}
+
+/**
+ * Global seed runner for demo setup.
+ */
+export async function runSeed(): Promise<{ message: string; counts: Record<string, number> }> {
+  // Check if demo user already exists with orders
+  const existingDemoUser = await User.findOne({ email: 'demo@devdynasty.in' });
+  const existingOrders = await Order.countDocuments();
+  if (existingDemoUser && existingOrders > 0) {
+    logger.info('Database already seeded, skipping.');
+    return { message: 'Already seeded', counts: { orders: existingOrders } };
+  }
+
+  logger.info('Starting database seed...');
+
+  // Clear demo collections
+  await Promise.all([
+    User.deleteMany({ email: 'demo@devdynasty.in' }),
+    Project.deleteMany({ slug: 'ecommerce-demo' }),
+  ]);
 
   // Create demo user
   const demoUser = new User({
@@ -167,82 +251,32 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
   logger.info('Demo user created');
 
   // Create project
-  await Project.create({
+  const demoProject = await Project.create({
     name: 'E-Commerce Demo',
-    description: 'Demo e-commerce project with orders, customers, products and invoices for SIH 2026',
+    description: 'Demo e-commerce workspace with orders, customers, products and invoices for SIH 2026',
     slug: 'ecommerce-demo',
     owner: demoUser._id,
     members: [demoUser._id],
-    collections: [
-      {
-        name: 'orders',
-        description: 'Customer orders with status tracking',
-        fields: [
-          { name: 'orderId', type: 'string', description: 'Unique order ID like ORD-001', filterable: true, sortable: true },
-          { name: 'customerName', type: 'string', description: 'Customer full name', filterable: true, sortable: true },
-          { name: 'city', type: 'string', description: 'Customer city', filterable: true, sortable: false },
-          { name: 'region', type: 'string', description: 'Region: North, South, East, West, Central', filterable: true, sortable: false },
-          { name: 'status', type: 'string', description: 'Order status: pending, confirmed, processing, shipped, delivered, cancelled', filterable: true, sortable: false },
-          { name: 'totalAmount', type: 'number', description: 'Total order amount in INR', filterable: true, sortable: true },
-          { name: 'paymentMethod', type: 'string', description: 'Payment method: cash, card, upi, netbanking, emi', filterable: true, sortable: false },
-          { name: 'createdAt', type: 'date', description: 'Order creation date', filterable: true, sortable: true },
-        ],
-        allowedOperations: ['read', 'update'],
-      },
-      {
-        name: 'customers',
-        description: 'Customer master data',
-        fields: [
-          { name: 'customerId', type: 'string', filterable: true, sortable: true },
-          { name: 'name', type: 'string', filterable: true, sortable: true },
-          { name: 'city', type: 'string', filterable: true, sortable: false },
-          { name: 'segment', type: 'string', description: 'retail, wholesale, enterprise', filterable: true, sortable: false },
-        ],
-        allowedOperations: ['read'],
-      },
-      {
-        name: 'products',
-        description: 'Product catalog',
-        fields: [
-          { name: 'productId', type: 'string', filterable: true, sortable: true },
-          { name: 'name', type: 'string', filterable: true, sortable: true },
-          { name: 'category', type: 'string', filterable: true, sortable: false },
-          { name: 'subcategory', type: 'string', filterable: true, sortable: false },
-          { name: 'price', type: 'number', filterable: true, sortable: true },
-          { name: 'stock', type: 'number', filterable: true, sortable: true },
-        ],
-        allowedOperations: ['read'],
-      },
-      {
-        name: 'invoices',
-        description: 'Invoice records linked to orders',
-        fields: [
-          { name: 'invoiceId', type: 'string', filterable: true, sortable: true },
-          { name: 'status', type: 'string', description: 'draft, sent, paid, overdue, cancelled', filterable: true, sortable: false },
-          { name: 'totalAmount', type: 'number', filterable: true, sortable: true },
-          { name: 'dueDate', type: 'date', filterable: true, sortable: true },
-        ],
-        allowedOperations: ['read', 'update'],
-      },
-    ],
-    registeredFunctions: [
-      { name: 'getOrderSummary', description: 'Returns total order counts by status', permission: 'orders.read', enabled: true },
-      { name: 'calculateInvoiceTotal', description: 'Calculates total invoice amount, optionally filtered by status (paid, draft, sent, overdue)', permission: 'invoices.read', enabled: true },
-      { name: 'getTopProducts', description: 'Returns top products by revenue. Optional args: {limit: number}', permission: 'orders.read', enabled: true },
-      { name: 'calculateRevenueByRegion', description: 'Calculates total revenue grouped by region', permission: 'orders.read', enabled: true },
-    ],
+    collections: defaultProjectCollections,
+    registeredFunctions: defaultRegisteredFunctions,
   });
-  logger.info('E-Commerce project seeded');
-  logger.info('Seed complete!');
+  logger.info('E-Commerce project created');
+
+  // Seed sample data for demo user
+  const counts = await seedProjectData(demoProject._id, demoUser._id);
+  logger.info('Seed complete for demo project!');
 
   return {
     message: 'Seed successful',
-    counts: { customers: customers.length, products: products.length, orders: orders.length, invoices: invoices.length },
+    counts,
   };
 }
 
 // CLI runner (for npm run seed or direct execution)
-const isDirectRun = (typeof require !== 'undefined' && require.main === module) || (process.argv[1] && process.argv[1].includes('seed'));
+const isDirectRun =
+  (typeof require !== 'undefined' && require.main === module) ||
+  (process.argv[1] && process.argv[1].includes('seed'));
+
 if (isDirectRun) {
   import('dotenv/config').then(async () => {
     const uri = process.env.MONGODB_URI || '';
@@ -254,7 +288,7 @@ if (isDirectRun) {
     await runSeed();
     await mongoose.disconnect();
     process.exit(0);
-  }).catch(err => {
+  }).catch((err) => {
     console.error('Seed failed', err);
     process.exit(1);
   });

@@ -9,14 +9,12 @@ import { QueryParams, UpdateParams } from '../validators/schemas';
  */
 function entityToModelName(entity: string): string {
   const lower = entity.toLowerCase().trim();
-  // Handle common irregular plurals
   const irregulars: Record<string, string> = {
     people: 'Person',
     children: 'Child',
     teeth: 'Tooth',
   };
   if (irregulars[lower]) return irregulars[lower]!;
-  // Strip trailing 's' for simple plurals, then capitalize
   const singular = lower.endsWith('ies')
     ? lower.slice(0, -3) + 'y'   // categories→Category
     : lower.endsWith('ses')
@@ -66,9 +64,12 @@ function buildMongoFilter(filters?: QueryParams['filters']): Record<string, unkn
 }
 
 export class MongoDBAdapter implements DataAdapter {
-  async query(params: QueryParams): Promise<Record<string, unknown>[]> {
+  async query(params: QueryParams, projectId?: string): Promise<Record<string, unknown>[]> {
     const model = getModel(params.entity);
     const filter = buildMongoFilter(params.filters);
+    if (projectId) {
+      filter.project = new mongoose.Types.ObjectId(projectId);
+    }
     const sort: Record<string, 1 | -1> = {};
     if (params.sortBy) {
       sort[params.sortBy] = params.sortOrder === 'desc' ? -1 : 1;
@@ -84,19 +85,25 @@ export class MongoDBAdapter implements DataAdapter {
     return docs as Record<string, unknown>[];
   }
 
-  async update(params: UpdateParams): Promise<{ success: boolean; record?: Record<string, unknown> }> {
+  async update(params: UpdateParams, projectId?: string): Promise<{ success: boolean; record?: Record<string, unknown> }> {
     const model = getModel(params.entity);
-    // Try custom ID field first (e.g. orderId, customerId), then MongoDB _id
     const singular = entityToModelName(params.entity);
     const idField = singular.charAt(0).toLowerCase() + singular.slice(1) + 'Id';
+    const query: Record<string, unknown> = { [idField]: params.recordId };
+    if (projectId) {
+      query.project = new mongoose.Types.ObjectId(projectId);
+    }
+
     const doc = await model.findOneAndUpdate(
-      { [idField]: params.recordId },
+      query,
       { $set: params.updates },
       { new: true, lean: true }
     );
     if (!doc) {
-      const byObjectId = await model.findByIdAndUpdate(
-        params.recordId,
+      const byObjectIdQuery: Record<string, unknown> = { _id: params.recordId };
+      if (projectId) byObjectIdQuery.project = new mongoose.Types.ObjectId(projectId);
+      const byObjectId = await model.findOneAndUpdate(
+        byObjectIdQuery,
         { $set: params.updates },
         { new: true, lean: true }
       );
@@ -106,28 +113,61 @@ export class MongoDBAdapter implements DataAdapter {
     return { success: true, record: doc as Record<string, unknown> };
   }
 
-  async count(entity: string, filters?: QueryParams['filters']): Promise<number> {
+  async create(entity: string, data: Record<string, unknown>, projectId: string, userId?: string): Promise<Record<string, unknown>> {
+    const model = getModel(entity);
+    const doc = await model.create({
+      ...data,
+      project: new mongoose.Types.ObjectId(projectId),
+      ...(userId ? { user: new mongoose.Types.ObjectId(userId) } : {}),
+    });
+    return doc.toObject() as Record<string, unknown>;
+  }
+
+  async bulkCreate(entity: string, records: Record<string, unknown>[], projectId: string, userId?: string): Promise<{ count: number }> {
+    const model = getModel(entity);
+    const projectObjId = new mongoose.Types.ObjectId(projectId);
+    const userObjId = userId ? new mongoose.Types.ObjectId(userId) : undefined;
+    const docs = records.map((r) => ({
+      ...r,
+      project: projectObjId,
+      ...(userObjId ? { user: userObjId } : {}),
+    }));
+    const inserted = await model.insertMany(docs);
+    return { count: inserted.length };
+  }
+
+  async count(entity: string, filters?: QueryParams['filters'], projectId?: string): Promise<number> {
     const model = getModel(entity);
     const filter = buildMongoFilter(filters);
+    if (projectId) {
+      filter.project = new mongoose.Types.ObjectId(projectId);
+    }
     return model.countDocuments(filter);
   }
 
-  async aggregate(entity: string, pipeline: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  async aggregate(entity: string, pipeline: Record<string, unknown>[], projectId?: string): Promise<Record<string, unknown>[]> {
     const model = getModel(entity);
-    // Double-cast via unknown to safely convert generic pipeline to Mongoose PipelineStage[]
-    const stages = pipeline as unknown as mongoose.PipelineStage[];
+    const scopedPipeline: Record<string, unknown>[] = [];
+    if (projectId) {
+      scopedPipeline.push({ $match: { project: new mongoose.Types.ObjectId(projectId) } });
+    }
+    scopedPipeline.push(...pipeline);
+    const stages = scopedPipeline as unknown as mongoose.PipelineStage[];
     const result = await model.aggregate(stages);
     return result as Record<string, unknown>[];
   }
 
-  async findById(entity: string, id: string): Promise<Record<string, unknown> | null> {
+  async findById(entity: string, id: string, projectId?: string): Promise<Record<string, unknown> | null> {
     const model = getModel(entity);
     const singular = entityToModelName(entity);
     const idField = singular.charAt(0).toLowerCase() + singular.slice(1) + 'Id';
-    // Try custom ID field first, then MongoDB ObjectId
+    const query: Record<string, unknown> = { [idField]: id };
+    if (projectId) {
+      query.project = new mongoose.Types.ObjectId(projectId);
+    }
     const doc =
-      (await model.findOne({ [idField]: id }).lean()) ??
-      (await model.findById(id).lean());
+      (await model.findOne(query).lean()) ??
+      (await model.findOne({ _id: id, ...(projectId ? { project: new mongoose.Types.ObjectId(projectId) } : {}) }).lean());
     return doc as Record<string, unknown> | null;
   }
 }

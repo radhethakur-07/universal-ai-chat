@@ -9,6 +9,8 @@ export interface IOrderItem {
 }
 
 export interface IOrder extends Document {
+  project: mongoose.Types.ObjectId;
+  user?: mongoose.Types.ObjectId;
   orderId: string;
   customerId: string;
   customerName: string;
@@ -37,7 +39,9 @@ const orderItemSchema = new Schema<IOrderItem>({
 
 const orderSchema = new Schema<IOrder>(
   {
-    orderId: { type: String, required: true, unique: true },
+    project: { type: Schema.Types.ObjectId, ref: 'Project', required: true, index: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    orderId: { type: String, required: true },
     customerId: { type: String, required: true },
     customerName: { type: String, required: true },
     city: { type: String, required: true },
@@ -67,10 +71,11 @@ const orderSchema = new Schema<IOrder>(
   { timestamps: true }
 );
 
-orderSchema.index({ customerId: 1 });
-orderSchema.index({ status: 1 });
-orderSchema.index({ city: 1 });
-orderSchema.index({ region: 1 });
-orderSchema.index({ createdAt: -1 });
+orderSchema.index({ project: 1, orderId: 1 }, { unique: true });
+orderSchema.index({ project: 1, customerId: 1 });
+orderSchema.index({ project: 1, status: 1 });
+orderSchema.index({ project: 1, city: 1 });
+orderSchema.index({ project: 1, region: 1 });
+orderSchema.index({ project: 1, createdAt: -1 });
 
 export const Order = mongoose.model<IOrder>('Order', orderSchema);

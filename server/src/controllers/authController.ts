@@ -7,6 +7,11 @@ import { loginSchema, registerSchema } from '../validators/schemas';
 import logger from '../utils/logger';
 import { sendOTPEmail } from '../services/emailService';
 import { generateOTP, storeOTP, verifyOTP } from '../utils/otpStore';
+import {
+  seedProjectData,
+  defaultProjectCollections,
+  defaultRegisteredFunctions,
+} from '../utils/seed';
 import { z } from 'zod';
 
 function signToken(userId: string, email: string): string {
@@ -26,7 +31,6 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
       })
       .parse(req.body);
 
-    // Check if email is already registered
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
       res.status(409).json({ error: 'Email already registered. Please sign in instead.' });
@@ -60,30 +64,45 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         return;
       }
     } else if (process.env.BREVO_API_KEY) {
-      // OTP is required when Brevo is configured
       res.status(400).json({ error: 'Email verification required. Please verify your email first.' });
       return;
     }
-    // If BREVO_API_KEY is not set, allow registration without OTP (dev/demo mode)
 
     const existing = await User.findOne({ email: body.email });
     if (existing) {
       res.status(409).json({ error: 'Email already registered' });
       return;
     }
+
+    // 1. Create User
     const user = await User.create(body);
 
-    // Automatically grant access to demo project
-    await Project.updateMany(
-      { slug: 'ecommerce-demo' },
-      { $addToSet: { members: user._id } }
-    );
+    // 2. Create Isolated Private Workspace for this User
+    const cleanSlug = `${user.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
+    const userProject = await Project.create({
+      name: `${user.name}'s Workspace`,
+      description: `Private e-commerce data workspace for ${user.name}`,
+      slug: cleanSlug,
+      owner: user._id,
+      members: [user._id],
+      collections: defaultProjectCollections,
+      registeredFunctions: defaultRegisteredFunctions,
+    });
+
+    // 3. Seed starter dataset into this user's private workspace
+    try {
+      await seedProjectData(userProject._id, user._id);
+      logger.info('Private workspace and starter data created for new user', { userId: user._id });
+    } catch (seedErr) {
+      logger.warn('Failed to seed starter data for new user workspace', seedErr);
+    }
 
     const token = signToken(user._id.toString(), user.email);
     logger.info('User registered', { userId: user._id });
     res.status(201).json({
       token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      project: { id: userProject._id, name: userProject.name },
     });
   } catch (error) {
     throw error;

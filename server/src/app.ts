@@ -11,6 +11,7 @@ import conversationRoutes from './routes/conversations';
 import projectRoutes from './routes/projects';
 import healthRoutes from './routes/health';
 import seedRoutes from './routes/seed';
+import dataRoutes from './routes/data';
 import logger from './utils/logger';
 
 const app = express();
@@ -57,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/data', dataRoutes);
 app.use('/api/seed', seedRoutes);
 
 // Error handling

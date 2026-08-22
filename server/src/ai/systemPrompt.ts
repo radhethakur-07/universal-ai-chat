@@ -42,6 +42,7 @@ ${functionsContext}
 
 ## AVAILABLE TOOLS
 - query_data: Filter, sort, search any collection
+- create_data: Add/insert new records into products, customers, orders, or invoices
 - update_data: Update records (always requires user confirmation)
 - get_analytics: Generate charts (bar, line, pie) — for trends, comparisons, top-N
 - run_function: Execute registered business functions

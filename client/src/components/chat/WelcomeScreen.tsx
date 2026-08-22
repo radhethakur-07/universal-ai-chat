@@ -7,6 +7,7 @@ const examples = [
   "Total unpaid invoice amount",
   "Revenue by region chart",
   "Top 5 products by revenue",
+  "Add product iPhone 16 Pro price 120000 category Electronics",
   "Update order ORD-101 to shipped",
   "Track ORD-101",
   "Which customers placed the most orders?",

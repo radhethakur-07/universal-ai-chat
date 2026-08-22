@@ -1,9 +1,10 @@
-import { Menu, Zap, ChevronDown, LogOut } from 'lucide-react';
+import { Menu, Zap, ChevronDown, LogOut, PlusCircle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useChatStore } from '../../store/chatStore';
 import { Project } from '../../types';
+import DataImportModal from '../chat/DataImportModal';
 
 interface Props {
   onToggleSidebar: () => void;
@@ -15,6 +16,7 @@ export default function TopBar({ onToggleSidebar }: Props) {
   const { setActiveConversation, setMessages } = useChatStore();
   const [projectOpen, setProjectOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const projectRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
@@ -87,6 +89,18 @@ export default function TopBar({ onToggleSidebar }: Props) {
           </div>
         )}
 
+        {/* Add Data button */}
+        {selectedProject && (
+          <button
+            onClick={() => setImportModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600/20 hover:bg-brand-600/30 border border-brand-500/30 text-brand-300 hover:text-white rounded-lg text-xs font-medium transition-all shadow-sm"
+            title="Add or import custom data into this workspace"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Add Data</span>
+          </button>
+        )}
+
         {/* Connection indicator */}
         <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -126,6 +140,11 @@ export default function TopBar({ onToggleSidebar }: Props) {
           )}
         </div>
       </div>
+
+      <DataImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+      />
     </header>
   );
 }

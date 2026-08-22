@@ -148,6 +148,25 @@ export const geminiTools: Tool[] = [
           required: ['orderId'],
         },
       } as FunctionDeclaration,
+      {
+        name: 'create_data',
+        description:
+          'Create and insert a new record into a business collection (e.g. products, customers, orders, invoices). Use when user asks to add, insert, create, or register new items, products, customers or orders.',
+        parameters: {
+          type: 'object' as any,
+          properties: {
+            entity: {
+              type: 'string' as any,
+              description: 'The collection name (e.g. products, customers, orders, invoices)',
+            },
+            data: {
+              type: 'object' as any,
+              description: 'Key-value pairs of the record fields to insert (e.g. { name: "MacBook", price: 120000, category: "Electronics" })',
+            },
+          },
+          required: ['entity', 'data'],
+        },
+      } as FunctionDeclaration,
     ],
   },
 ];
