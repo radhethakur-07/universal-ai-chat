@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useProjectStore } from '../../store/projectStore';
 import { dataService } from '../../services/dataService';
 import toast from 'react-hot-toast';
-import { PlusCircle, FileJson, CheckCircle2, AlertCircle } from 'lucide-react';
+import { PlusCircle, FileSpreadsheet, FileJson, AlertCircle, Upload } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -14,25 +14,86 @@ interface Props {
 
 type EntityType = 'products' | 'customers' | 'orders' | 'invoices';
 
+function parseCsv(csvText: string): Record<string, unknown>[] {
+  const lines = csvText
+    .trim()
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return [];
+  const headers = lines[0]!.split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
+  const records: Record<string, unknown>[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i]!;
+    // Split by comma ignoring commas inside quotes
+    const values = line.split(',').map((v) => v.trim().replace(/^["']|["']$/g, ''));
+    const obj: Record<string, unknown> = {};
+    headers.forEach((h, idx) => {
+      const raw = values[idx] ?? '';
+      const num = parseFloat(raw);
+      obj[h] = !isNaN(num) && String(num) === raw ? num : raw;
+    });
+    records.push(obj);
+  }
+  return records;
+}
+
 export default function DataImportModal({ open, onClose }: Props) {
   const { selectedProject } = useProjectStore();
-  const [tab, setTab] = useState<'form' | 'json'>('form');
+  const [tab, setTab] = useState<'form' | 'csv' | 'json'>('csv');
   const [entity, setEntity] = useState<EntityType>('products');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
-  // Product
   const [productForm, setProductForm] = useState({ name: '', price: '', category: 'Electronics', stock: '50' });
-  // Customer
   const [customerForm, setCustomerForm] = useState({ name: '', email: '', city: 'Mumbai', segment: 'retail' });
-  // Order
   const [orderForm, setOrderForm] = useState({ customerName: '', totalAmount: '', status: 'confirmed', city: 'Mumbai' });
-  // Invoice
   const [invoiceForm, setInvoiceForm] = useState({ customerName: '', totalAmount: '', status: 'paid' });
 
-  // JSON input state
+  // Text inputs
+  const [csvText, setCsvText] = useState('');
   const [jsonText, setJsonText] = useState('');
+
+  const sampleCsvs: Record<EntityType, string> = {
+    products: `name,price,category,stock,subcategory
+Apple iPhone 16 Pro,120000,Electronics,45,Mobiles
+Sony Bravia 55 4K TV,65000,Electronics,20,Displays
+Ergonomic Leather Chair,18500,Furniture,15,Seating
+Logitech MX Master 3S,8995,Electronics,80,Accessories
+Executive Wooden Desk,28000,Furniture,10,Desks`,
+    customers: `name,email,phone,city,state,segment
+Deepak Sharma,deepak.sharma@example.com,+91-9812345678,Jaipur,Rajasthan,enterprise
+Ritu Verma,ritu.verma@example.com,+91-9823456789,Bengaluru,Karnataka,wholesale
+Amitabh Sen,amitabh.sen@example.com,+91-9834567890,Kolkata,West Bengal,retail
+Neha Patil,neha.patil@example.com,+91-9845678901,Pune,Maharashtra,wholesale`,
+    orders: `customerName,city,state,region,totalAmount,status,paymentMethod
+Deepak Sharma,Jaipur,Rajasthan,North,120000,delivered,upi
+Ritu Verma,Bengaluru,Karnataka,South,37000,shipped,card
+Amitabh Sen,Kolkata,West Bengal,East,8995,confirmed,netbanking
+Neha Patil,Pune,Maharashtra,West,28000,pending,cash`,
+    invoices: `customerName,totalAmount,status
+Deepak Sharma,120000,paid
+Ritu Verma,37000,sent
+Amitabh Sen,8995,paid
+Neha Patil,28000,draft`,
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        setCsvText(text);
+        toast.success(`Loaded ${file.name}`);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,15 +141,41 @@ export default function DataImportModal({ open, onClose }: Props) {
 
       await dataService.importData(selectedProject._id, entity, [record]);
       toast.success(`New ${entity.slice(0, -1)} added to your workspace!`);
-      // Reset forms
       setProductForm({ name: '', price: '', category: 'Electronics', stock: '50' });
       setCustomerForm({ name: '', email: '', city: 'Mumbai', segment: 'retail' });
       setOrderForm({ customerName: '', totalAmount: '', status: 'confirmed', city: 'Mumbai' });
       setInvoiceForm({ customerName: '', totalAmount: '', status: 'paid' });
       onClose();
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err.message || 'Failed to add data';
-      setError(msg);
+      setError(err?.response?.data?.error || err.message || 'Failed to add data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCsvSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject) {
+      toast.error('No active workspace selected');
+      return;
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      const records = parseCsv(csvText);
+      if (records.length === 0) {
+        setError('CSV is empty or invalid. Header row + at least 1 data row required.');
+        setLoading(false);
+        return;
+      }
+
+      const res = await dataService.importData(selectedProject._id, entity, records);
+      toast.success(res.message || `Imported ${res.count} records from CSV!`);
+      setCsvText('');
+      onClose();
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err.message || 'Failed to import CSV');
     } finally {
       setLoading(false);
     }
@@ -132,7 +219,7 @@ export default function DataImportModal({ open, onClose }: Props) {
       <div className="space-y-4">
         {/* Workspace context */}
         <p className="text-xs text-gray-400">
-          Adding data to:{' '}
+          Target Workspace:{' '}
           <span className="text-brand-400 font-semibold">{selectedProject?.name || 'Workspace'}</span>
           <span className="text-gray-500 block text-[11px] mt-0.5">
             This data is strictly private and accessible only to your account.
@@ -143,12 +230,21 @@ export default function DataImportModal({ open, onClose }: Props) {
         <div className="flex bg-gray-800/80 p-1 rounded-xl border border-gray-700">
           <button
             type="button"
+            onClick={() => { setTab('csv'); setError(''); }}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+              tab === 'csv' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" /> CSV Import
+          </button>
+          <button
+            type="button"
             onClick={() => { setTab('form'); setError(''); }}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
               tab === 'form' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            <PlusCircle className="w-3.5 h-3.5" /> Quick Add Form
+            <PlusCircle className="w-3.5 h-3.5" /> Quick Form
           </button>
           <button
             type="button"
@@ -157,7 +253,7 @@ export default function DataImportModal({ open, onClose }: Props) {
               tab === 'json' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            <FileJson className="w-3.5 h-3.5" /> Bulk JSON Import
+            <FileJson className="w-3.5 h-3.5" /> JSON Import
           </button>
         </div>
 
@@ -189,8 +285,53 @@ export default function DataImportModal({ open, onClose }: Props) {
           </div>
         )}
 
-        {/* Tab 1: Form */}
-        {tab === 'form' ? (
+        {/* Tab 1: CSV Import */}
+        {tab === 'csv' && (
+          <form onSubmit={handleCsvSubmit} className="space-y-3 pt-1">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-medium text-gray-300">
+                Paste CSV or Upload File ({entity})
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCsvText(sampleCsvs[entity])}
+                  className="text-[11px] text-brand-400 hover:text-brand-300 transition-colors"
+                >
+                  Load Sample CSV
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".csv"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-[11px] text-gray-400 hover:text-gray-200 flex items-center gap-1 transition-colors"
+                >
+                  <Upload className="w-3 h-3" /> Upload .csv
+                </button>
+              </div>
+            </div>
+            <textarea
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              placeholder={`header1,header2,header3\nvalue1,value2,value3`}
+              rows={7}
+              className="input-field font-mono text-xs leading-relaxed"
+              required
+            />
+            <Button type="submit" loading={loading} fullWidth className="mt-2">
+              Import CSV to {entity}
+            </Button>
+          </form>
+        )}
+
+        {/* Tab 2: Quick Add Form */}
+        {tab === 'form' && (
           <form onSubmit={handleFormSubmit} className="space-y-3 pt-1">
             {entity === 'products' && (
               <>
@@ -353,12 +494,14 @@ export default function DataImportModal({ open, onClose }: Props) {
               Add Record to {entity}
             </Button>
           </form>
-        ) : (
-          /* Tab 2: JSON Import */
+        )}
+
+        {/* Tab 3: JSON Import */}
+        {tab === 'json' && (
           <form onSubmit={handleJsonSubmit} className="space-y-3 pt-1">
             <div>
               <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                Paste JSON Array or Object ({entity})
+                Paste JSON Array ({entity})
               </label>
               <textarea
                 value={jsonText}
@@ -370,7 +513,7 @@ export default function DataImportModal({ open, onClose }: Props) {
               />
             </div>
             <Button type="submit" loading={loading} fullWidth className="mt-2">
-              Import Records to {entity}
+              Import JSON Records to {entity}
             </Button>
           </form>
         )}
