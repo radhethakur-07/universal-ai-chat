@@ -1,6 +1,38 @@
 import mongoose from 'mongoose';
 import logger from '../utils/logger';
 
+/**
+ * Drops legacy single-field unique indexes created before multi-tenant scoping was introduced.
+ * This allows multiple users to have their own CUST-001, ORD-001, etc. scoped by project.
+ */
+export async function syncLegacyIndexes(): Promise<void> {
+  const collections = ['customers', 'products', 'orders', 'invoices'];
+  for (const colName of collections) {
+    try {
+      const col = mongoose.connection.collection(colName);
+      const indexes = await col.indexes();
+      for (const idx of indexes) {
+        // Drop any old unique index that does NOT include the 'project' field
+        if (
+          idx.name &&
+          !idx.name.startsWith('_id') &&
+          !idx.name.includes('project') &&
+          idx.unique
+        ) {
+          try {
+            await col.dropIndex(idx.name);
+            logger.info(`Dropped legacy unique index '${idx.name}' on collection '${colName}'`);
+          } catch (dropErr) {
+            logger.warn(`Could not drop index ${idx.name} on ${colName}`, dropErr);
+          }
+        }
+      }
+    } catch {
+      // Collection might not exist yet, safe to ignore
+    }
+  }
+}
+
 const connectDB = async (): Promise<void> => {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
@@ -13,6 +45,9 @@ const connectDB = async (): Promise<void> => {
       socketTimeoutMS: 45000,
     });
     logger.info('MongoDB Atlas connected successfully');
+
+    // Clean up old single-tenant indexes
+    await syncLegacyIndexes();
   } catch (error) {
     logger.error('MongoDB connection failed:', error);
     throw error;

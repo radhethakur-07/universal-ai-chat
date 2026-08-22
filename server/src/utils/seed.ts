@@ -5,6 +5,7 @@ import { Customer } from '../models/business/Customer';
 import { Product } from '../models/business/Product';
 import { Order } from '../models/business/Order';
 import { Invoice } from '../models/business/Invoice';
+import { syncLegacyIndexes } from '../config/database';
 import logger from './logger';
 
 export const sampleCustomers = [
@@ -129,6 +130,9 @@ export async function seedProjectData(
   projectId: mongoose.Types.ObjectId,
   userId: mongoose.Types.ObjectId
 ): Promise<{ customers: number; products: number; orders: number; invoices: number }> {
+  // Ensure legacy single-field unique indexes are cleaned up
+  await syncLegacyIndexes();
+
   // 1. Seed customers
   const customers = sampleCustomers.map((c) => ({
     ...c,

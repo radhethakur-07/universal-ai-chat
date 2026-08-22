@@ -176,6 +176,14 @@ export interface GeminiMessage {
   parts: Part[];
 }
 
+function getValidModelName(): string {
+  const m = (env.geminiModel || '').trim().toLowerCase();
+  if (m === 'gemini-2.0-flash' || m === 'gemini-1.5-flash' || m === 'gemini-1.5-pro') {
+    return m;
+  }
+  return 'gemini-2.0-flash';
+}
+
 export async function runGeminiChat(
   systemPrompt: string,
   history: GeminiMessage[],
@@ -183,8 +191,9 @@ export async function runGeminiChat(
   onToolCall: (name: string, args: Record<string, unknown>) => Promise<unknown>,
 ): Promise<{ text: string; toolsUsed: string[] }> {
   const ai = getGenAI();
+  const modelName = getValidModelName();
   const model = ai.getGenerativeModel({
-    model: env.geminiModel,
+    model: modelName,
     systemInstruction: systemPrompt,
     tools: geminiTools,
   });
@@ -192,7 +201,15 @@ export async function runGeminiChat(
   const chat = model.startChat({ history });
   const toolsUsed: string[] = [];
 
-  let result = await chat.sendMessage(userMessage);
+  let result;
+  try {
+    result = await chat.sendMessage(userMessage);
+  } catch (err: any) {
+    if (err.message && err.message.includes('429')) {
+      throw new Error('Gemini API rate limit exceeded. Please wait 30 seconds and try again.');
+    }
+    throw err;
+  }
   let response = result.response;
 
   let iterations = 0;
