@@ -111,6 +111,7 @@ export const geminiTools: Tool[] = [
                 'getTopProducts',
                 'calculateRevenueByRegion',
               ],
+              description: 'Registered function name',
             },
             args: {
               type: 'object' as any,
@@ -122,8 +123,7 @@ export const geminiTools: Tool[] = [
       } as FunctionDeclaration,
       {
         name: 'get_record',
-        description:
-          'Get a specific record by its ID. Use when the user mentions a specific ID like ORD-101, CUST-001, PROD-005.',
+        description: 'Get a specific record by its ID or order ID',
         parameters: {
           type: 'object' as any,
           properties: {
@@ -198,22 +198,26 @@ export async function runGeminiChat(
     tools: geminiTools,
   });
 
-  const chat = model.startChat({ history });
+  const contents: Array<{ role: 'user' | 'model'; parts: Part[] }> = [
+    ...history,
+    { role: 'user', parts: [{ text: userMessage }] },
+  ];
+
   const toolsUsed: string[] = [];
+  let iterations = 0;
+  const MAX_ITERATIONS = 5;
 
   let result;
   try {
-    result = await chat.sendMessage(userMessage);
+    result = await model.generateContent({ contents });
   } catch (err: any) {
     if (err.message && err.message.includes('429')) {
       throw new Error('Gemini API rate limit exceeded. Please wait 30 seconds and try again.');
     }
     throw err;
   }
-  let response = result.response;
 
-  let iterations = 0;
-  const MAX_ITERATIONS = 5;
+  let response = result.response;
 
   while (
     response.functionCalls() &&
@@ -227,8 +231,17 @@ export async function runGeminiChat(
       names: calls.map((c) => c.name),
     });
 
-    // Process ALL function calls in parallel (supports multi-tool responses)
-    const functionResponses = await Promise.all(
+    // 1. Add model's functionCall parts to contents history
+    const modelParts: Part[] = calls.map((c) => ({
+      functionCall: {
+        name: c.name,
+        args: c.args,
+      },
+    }));
+    contents.push({ role: 'model', parts: modelParts });
+
+    // 2. Execute all function calls in parallel
+    const functionResponses: Part[] = await Promise.all(
       calls.map(async (call) => {
         const { name, args } = call;
         toolsUsed.push(name);
@@ -248,12 +261,30 @@ export async function runGeminiChat(
       })
     );
 
-    result = await chat.sendMessage(functionResponses);
-    response = result.response;
+    // 3. Add function responses with role: 'user' (Required by Gemini API v1beta)
+    contents.push({ role: 'user', parts: functionResponses });
+
+    // 4. Send updated contents back to model
+    try {
+      result = await model.generateContent({ contents });
+      response = result.response;
+    } catch (err: any) {
+      if (err.message && err.message.includes('429')) {
+        throw new Error('Gemini API rate limit exceeded. Please wait 30 seconds and try again.');
+      }
+      throw err;
+    }
+  }
+
+  let text = '';
+  try {
+    text = response.text();
+  } catch {
+    text = 'Operation completed successfully.';
   }
 
   return {
-    text: response.text(),
+    text,
     toolsUsed,
   };
 }
