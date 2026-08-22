@@ -231,14 +231,19 @@ export async function runGeminiChat(
       names: calls.map((c) => c.name),
     });
 
-    // 1. Add model's functionCall parts to contents history
-    const modelParts: Part[] = calls.map((c) => ({
-      functionCall: {
-        name: c.name,
-        args: c.args,
-      },
-    }));
-    contents.push({ role: 'model', parts: modelParts });
+    // 1. Preserve the EXACT candidate content parts from the model (including thought_signature)
+    const candidateParts = response.candidates?.[0]?.content?.parts;
+    if (candidateParts && candidateParts.length > 0) {
+      contents.push({ role: 'model', parts: candidateParts });
+    } else {
+      const modelParts: Part[] = calls.map((c) => ({
+        functionCall: {
+          name: c.name,
+          args: c.args,
+        },
+      }));
+      contents.push({ role: 'model', parts: modelParts });
+    }
 
     // 2. Execute all function calls in parallel
     const functionResponses: Part[] = await Promise.all(
