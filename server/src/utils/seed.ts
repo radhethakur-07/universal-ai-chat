@@ -8,46 +8,47 @@ import { Invoice } from '../models/business/Invoice';
 import logger from './logger';
 
 const customers = [
-  { customerId: 'CUST-001', name: 'Arjun Sharma', email: 'arjun.sharma@email.com', phone: '+91-9876543210', city: 'Mumbai', state: 'Maharashtra', country: 'India', segment: 'enterprise' },
-  { customerId: 'CUST-002', name: 'Priya Patel', email: 'priya.patel@email.com', phone: '+91-9876543211', city: 'Ahmedabad', state: 'Gujarat', country: 'India', segment: 'wholesale' },
-  { customerId: 'CUST-003', name: 'Rohit Singh', email: 'rohit.singh@email.com', phone: '+91-9876543212', city: 'Delhi', state: 'Delhi', country: 'India', segment: 'retail' },
-  { customerId: 'CUST-004', name: 'Ananya Krishnan', email: 'ananya.k@email.com', phone: '+91-9876543213', city: 'Chennai', state: 'Tamil Nadu', country: 'India', segment: 'wholesale' },
-  { customerId: 'CUST-005', name: 'Vikram Mehta', email: 'vikram.mehta@email.com', phone: '+91-9876543214', city: 'Mumbai', state: 'Maharashtra', country: 'India', segment: 'enterprise' },
-  { customerId: 'CUST-006', name: 'Kavya Reddy', email: 'kavya.reddy@email.com', phone: '+91-9876543215', city: 'Hyderabad', state: 'Telangana', country: 'India', segment: 'retail' },
-  { customerId: 'CUST-007', name: 'Aditya Kumar', email: 'aditya.k@email.com', phone: '+91-9876543216', city: 'Bangalore', state: 'Karnataka', country: 'India', segment: 'enterprise' },
-  { customerId: 'CUST-008', name: 'Sneha Joshi', email: 'sneha.joshi@email.com', phone: '+91-9876543217', city: 'Pune', state: 'Maharashtra', country: 'India', segment: 'wholesale' },
-  { customerId: 'CUST-009', name: 'Rahul Gupta', email: 'rahul.gupta@email.com', phone: '+91-9876543218', city: 'Kolkata', state: 'West Bengal', country: 'India', segment: 'retail' },
-  { customerId: 'CUST-010', name: 'Meera Nair', email: 'meera.nair@email.com', phone: '+91-9876543219', city: 'Kochi', state: 'Kerala', country: 'India', segment: 'wholesale' },
-  { customerId: 'CUST-011', name: 'Suresh Verma', email: 'suresh.v@email.com', phone: '+91-9876543220', city: 'Jaipur', state: 'Rajasthan', country: 'India', segment: 'retail' },
-  { customerId: 'CUST-012', name: 'Divya Agarwal', email: 'divya.a@email.com', phone: '+91-9876543221', city: 'Mumbai', state: 'Maharashtra', country: 'India', segment: 'enterprise' },
-  { customerId: 'CUST-013', name: 'Manoj Pillai', email: 'manoj.p@email.com', phone: '+91-9876543222', city: 'Bangalore', state: 'Karnataka', country: 'India', segment: 'wholesale' },
-  { customerId: 'CUST-014', name: 'Pooja Choudhary', email: 'pooja.c@email.com', phone: '+91-9876543223', city: 'Delhi', state: 'Delhi', country: 'India', segment: 'retail' },
-  { customerId: 'CUST-015', name: 'Kiran Rao', email: 'kiran.rao@email.com', phone: '+91-9876543224', city: 'Hyderabad', state: 'Telangana', country: 'India', segment: 'enterprise' },
+  { customerId: 'CUST-001', name: 'Arjun Sharma', email: 'arjun.sharma@email.com', phone: '+91-9876543210', city: 'Mumbai', state: 'Maharashtra', country: 'India', segment: 'enterprise' as const },
+  { customerId: 'CUST-002', name: 'Priya Patel', email: 'priya.patel@email.com', phone: '+91-9876543211', city: 'Ahmedabad', state: 'Gujarat', country: 'India', segment: 'wholesale' as const },
+  { customerId: 'CUST-003', name: 'Rohit Singh', email: 'rohit.singh@email.com', phone: '+91-9876543212', city: 'Delhi', state: 'Delhi', country: 'India', segment: 'retail' as const },
+  { customerId: 'CUST-004', name: 'Ananya Krishnan', email: 'ananya.k@email.com', phone: '+91-9876543213', city: 'Chennai', state: 'Tamil Nadu', country: 'India', segment: 'wholesale' as const },
+  { customerId: 'CUST-005', name: 'Vikram Mehta', email: 'vikram.mehta@email.com', phone: '+91-9876543214', city: 'Mumbai', state: 'Maharashtra', country: 'India', segment: 'enterprise' as const },
+  { customerId: 'CUST-006', name: 'Kavya Reddy', email: 'kavya.reddy@email.com', phone: '+91-9876543215', city: 'Hyderabad', state: 'Telangana', country: 'India', segment: 'retail' as const },
+  { customerId: 'CUST-007', name: 'Aditya Kumar', email: 'aditya.k@email.com', phone: '+91-9876543216', city: 'Bangalore', state: 'Karnataka', country: 'India', segment: 'enterprise' as const },
+  { customerId: 'CUST-008', name: 'Sneha Joshi', email: 'sneha.joshi@email.com', phone: '+91-9876543217', city: 'Pune', state: 'Maharashtra', country: 'India', segment: 'wholesale' as const },
+  { customerId: 'CUST-009', name: 'Rahul Gupta', email: 'rahul.gupta@email.com', phone: '+91-9876543218', city: 'Kolkata', state: 'West Bengal', country: 'India', segment: 'retail' as const },
+  { customerId: 'CUST-010', name: 'Meera Nair', email: 'meera.nair@email.com', phone: '+91-9876543219', city: 'Kochi', state: 'Kerala', country: 'India', segment: 'wholesale' as const },
+  { customerId: 'CUST-011', name: 'Suresh Verma', email: 'suresh.v@email.com', phone: '+91-9876543220', city: 'Jaipur', state: 'Rajasthan', country: 'India', segment: 'retail' as const },
+  { customerId: 'CUST-012', name: 'Divya Agarwal', email: 'divya.a@email.com', phone: '+91-9876543221', city: 'Mumbai', state: 'Maharashtra', country: 'India', segment: 'enterprise' as const },
+  { customerId: 'CUST-013', name: 'Manoj Pillai', email: 'manoj.p@email.com', phone: '+91-9876543222', city: 'Bangalore', state: 'Karnataka', country: 'India', segment: 'wholesale' as const },
+  { customerId: 'CUST-014', name: 'Pooja Choudhary', email: 'pooja.c@email.com', phone: '+91-9876543223', city: 'Delhi', state: 'Delhi', country: 'India', segment: 'retail' as const },
+  { customerId: 'CUST-015', name: 'Kiran Rao', email: 'kiran.rao@email.com', phone: '+91-9876543224', city: 'Hyderabad', state: 'Telangana', country: 'India', segment: 'enterprise' as const },
 ];
 
 const products = [
-  { productId: 'PROD-001', name: 'Laptop Pro 15', category: 'Electronics', costPrice: 45000, sellingPrice: 65000, stock: 50 },
-  { productId: 'PROD-002', name: 'Wireless Mouse', category: 'Electronics', costPrice: 800, sellingPrice: 1500, stock: 200 },
-  { productId: 'PROD-003', name: 'Mechanical Keyboard', category: 'Electronics', costPrice: 2500, sellingPrice: 4500, stock: 150 },
-  { productId: 'PROD-004', name: 'Monitor 27"', category: 'Electronics', costPrice: 18000, sellingPrice: 28000, stock: 75 },
-  { productId: 'PROD-005', name: 'Office Chair', category: 'Furniture', costPrice: 8000, sellingPrice: 15000, stock: 30 },
-  { productId: 'PROD-006', name: 'Standing Desk', category: 'Furniture', costPrice: 12000, sellingPrice: 22000, stock: 20 },
-  { productId: 'PROD-007', name: 'USB-C Hub', category: 'Electronics', costPrice: 1200, sellingPrice: 2500, stock: 300 },
-  { productId: 'PROD-008', name: 'Webcam HD', category: 'Electronics', costPrice: 2000, sellingPrice: 3500, stock: 100 },
-  { productId: 'PROD-009', name: 'Noise Cancelling Headphones', category: 'Electronics', costPrice: 8000, sellingPrice: 14000, stock: 80 },
-  { productId: 'PROD-010', name: 'Smartphone X12', category: 'Electronics', costPrice: 30000, sellingPrice: 45000, stock: 60 },
-  { productId: 'PROD-011', name: 'Tablet Pro', category: 'Electronics', costPrice: 20000, sellingPrice: 32000, stock: 40 },
-  { productId: 'PROD-012', name: 'Printer Laser', category: 'Electronics', costPrice: 10000, sellingPrice: 16000, stock: 25 },
-  { productId: 'PROD-013', name: 'Bookshelf', category: 'Furniture', costPrice: 4000, sellingPrice: 7500, stock: 35 },
-  { productId: 'PROD-014', name: 'Desk Lamp LED', category: 'Furniture', costPrice: 1500, sellingPrice: 3000, stock: 120 },
-  { productId: 'PROD-015', name: 'Power Bank 20000mAh', category: 'Electronics', costPrice: 1800, sellingPrice: 3200, stock: 200 },
+  { productId: 'PROD-001', name: 'Laptop Pro 15', category: 'Electronics', subcategory: 'Computers', price: 65000, costPrice: 45000, stock: 50, unit: 'piece', sku: 'SKU-LAP-001', isActive: true },
+  { productId: 'PROD-002', name: 'Wireless Mouse', category: 'Electronics', subcategory: 'Accessories', price: 1500, costPrice: 800, stock: 200, unit: 'piece', sku: 'SKU-MOU-002', isActive: true },
+  { productId: 'PROD-003', name: 'Mechanical Keyboard', category: 'Electronics', subcategory: 'Accessories', price: 4500, costPrice: 2500, stock: 150, unit: 'piece', sku: 'SKU-KEY-003', isActive: true },
+  { productId: 'PROD-004', name: 'Monitor 27"', category: 'Electronics', subcategory: 'Displays', price: 28000, costPrice: 18000, stock: 75, unit: 'piece', sku: 'SKU-MON-004', isActive: true },
+  { productId: 'PROD-005', name: 'Office Chair', category: 'Furniture', subcategory: 'Seating', price: 15000, costPrice: 8000, stock: 30, unit: 'piece', sku: 'SKU-CHR-005', isActive: true },
+  { productId: 'PROD-006', name: 'Standing Desk', category: 'Furniture', subcategory: 'Desks', price: 22000, costPrice: 12000, stock: 20, unit: 'piece', sku: 'SKU-DSK-006', isActive: true },
+  { productId: 'PROD-007', name: 'USB-C Hub', category: 'Electronics', subcategory: 'Accessories', price: 2500, costPrice: 1200, stock: 300, unit: 'piece', sku: 'SKU-HUB-007', isActive: true },
+  { productId: 'PROD-008', name: 'Webcam HD', category: 'Electronics', subcategory: 'Cameras', price: 3500, costPrice: 2000, stock: 100, unit: 'piece', sku: 'SKU-CAM-008', isActive: true },
+  { productId: 'PROD-009', name: 'Noise Cancelling Headphones', category: 'Electronics', subcategory: 'Audio', price: 14000, costPrice: 8000, stock: 80, unit: 'piece', sku: 'SKU-AUD-009', isActive: true },
+  { productId: 'PROD-010', name: 'Smartphone X12', category: 'Electronics', subcategory: 'Mobiles', price: 45000, costPrice: 30000, stock: 60, unit: 'piece', sku: 'SKU-PHN-010', isActive: true },
+  { productId: 'PROD-011', name: 'Tablet Pro', category: 'Electronics', subcategory: 'Tablets', price: 32000, costPrice: 20000, stock: 40, unit: 'piece', sku: 'SKU-TAB-011', isActive: true },
+  { productId: 'PROD-012', name: 'Printer Laser', category: 'Electronics', subcategory: 'Printers', price: 16000, costPrice: 10000, stock: 25, unit: 'piece', sku: 'SKU-PRN-012', isActive: true },
+  { productId: 'PROD-013', name: 'Bookshelf', category: 'Furniture', subcategory: 'Storage', price: 7500, costPrice: 4000, stock: 35, unit: 'piece', sku: 'SKU-SHF-013', isActive: true },
+  { productId: 'PROD-014', name: 'Desk Lamp LED', category: 'Furniture', subcategory: 'Lighting', price: 3000, costPrice: 1500, stock: 120, unit: 'piece', sku: 'SKU-LMP-014', isActive: true },
+  { productId: 'PROD-015', name: 'Power Bank 20000mAh', category: 'Electronics', subcategory: 'Accessories', price: 3200, costPrice: 1800, stock: 200, unit: 'piece', sku: 'SKU-PWR-015', isActive: true },
 ];
 
-const regions = ['North', 'South', 'East', 'West', 'Central'];
-const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
-const paymentMethods = ['UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'COD'];
+const regions = ['North', 'South', 'East', 'West', 'Central'] as const;
+const orderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'] as const;
+const paymentStatuses = ['unpaid', 'paid', 'partial', 'refunded'] as const;
+const paymentMethods = ['cash', 'card', 'upi', 'netbanking', 'emi'] as const;
 
-function randomItem<T>(arr: T[]): T {
+function randomItem<T>(arr: readonly T[] | T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
@@ -98,19 +99,33 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
   for (let i = 1; i <= 30; i++) {
     const customer = randomItem(customers);
     const product = randomItem(products);
-    const qty = randomBetween(1, 5);
-    const totalAmount = product.sellingPrice * qty;
+    const qty = randomBetween(1, 4);
+    const amount = product.price * qty;
+    const tax = Math.round(amount * 0.18);
+    const totalAmount = amount + tax;
+    const status = randomItem(orderStatuses);
+    const paymentStatus = status === 'delivered' ? 'paid' : status === 'cancelled' ? 'refunded' : randomItem(paymentStatuses);
+
     orders.push({
       orderId: `ORD-${String(i).padStart(3, '0')}`,
       customerId: customer.customerId,
       customerName: customer.name,
       city: customer.city,
+      state: customer.state,
       region: randomItem(regions),
-      status: randomItem(statuses),
+      status,
+      paymentStatus,
       paymentMethod: randomItem(paymentMethods),
-      items: [{ productId: product.productId, productName: product.name, quantity: qty, unitPrice: product.sellingPrice, totalPrice: totalAmount }],
+      items: [{
+        productId: product.productId,
+        productName: product.name,
+        quantity: qty,
+        unitPrice: product.price,
+        totalPrice: amount,
+      }],
+      amount,
+      tax,
       totalAmount,
-      tax: Math.round(totalAmount * 0.18),
       createdAt: daysAgo(randomBetween(0, 60)),
     });
   }
@@ -118,20 +133,22 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
   logger.info('Orders seeded');
 
   // Seed invoices (25)
-  const invoiceStatuses = ['paid', 'unpaid', 'overdue', 'partial'];
+  const invoiceStatuses = ['draft', 'sent', 'paid', 'overdue', 'cancelled'] as const;
   const invoices = [];
   for (let i = 1; i <= 25; i++) {
     const order = orders[i - 1] || orders[0]!;
-    const status = randomItem(invoiceStatuses);
+    const status = order.paymentStatus === 'paid' ? 'paid' : randomItem(invoiceStatuses);
     invoices.push({
       invoiceId: `INV-${String(i).padStart(3, '0')}`,
       orderId: order.orderId,
       customerId: order.customerId,
       customerName: order.customerName,
-      status,
+      amount: order.amount,
+      tax: order.tax,
       totalAmount: order.totalAmount,
-      paidAmount: status === 'paid' ? order.totalAmount : status === 'partial' ? Math.round(order.totalAmount / 2) : 0,
+      status,
       dueDate: daysAgo(randomBetween(-30, 30)),
+      paidDate: status === 'paid' ? new Date() : undefined,
       createdAt: order.createdAt,
     });
   }
@@ -167,7 +184,7 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
           { name: 'region', type: 'string', description: 'Region: North, South, East, West, Central', filterable: true, sortable: false },
           { name: 'status', type: 'string', description: 'Order status: pending, confirmed, processing, shipped, delivered, cancelled', filterable: true, sortable: false },
           { name: 'totalAmount', type: 'number', description: 'Total order amount in INR', filterable: true, sortable: true },
-          { name: 'paymentMethod', type: 'string', description: 'Payment method used', filterable: true, sortable: false },
+          { name: 'paymentMethod', type: 'string', description: 'Payment method: cash, card, upi, netbanking, emi', filterable: true, sortable: false },
           { name: 'createdAt', type: 'date', description: 'Order creation date', filterable: true, sortable: true },
         ],
         allowedOperations: ['read', 'update'],
@@ -190,7 +207,8 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
           { name: 'productId', type: 'string', filterable: true, sortable: true },
           { name: 'name', type: 'string', filterable: true, sortable: true },
           { name: 'category', type: 'string', filterable: true, sortable: false },
-          { name: 'sellingPrice', type: 'number', filterable: true, sortable: true },
+          { name: 'subcategory', type: 'string', filterable: true, sortable: false },
+          { name: 'price', type: 'number', filterable: true, sortable: true },
           { name: 'stock', type: 'number', filterable: true, sortable: true },
         ],
         allowedOperations: ['read'],
@@ -200,7 +218,7 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
         description: 'Invoice records linked to orders',
         fields: [
           { name: 'invoiceId', type: 'string', filterable: true, sortable: true },
-          { name: 'status', type: 'string', description: 'paid, unpaid, overdue, partial', filterable: true, sortable: false },
+          { name: 'status', type: 'string', description: 'draft, sent, paid, overdue, cancelled', filterable: true, sortable: false },
           { name: 'totalAmount', type: 'number', filterable: true, sortable: true },
           { name: 'dueDate', type: 'date', filterable: true, sortable: true },
         ],
@@ -209,7 +227,7 @@ export async function runSeed(): Promise<{ message: string; counts: Record<strin
     ],
     registeredFunctions: [
       { name: 'getOrderSummary', description: 'Returns total order counts by status', permission: 'orders.read', enabled: true },
-      { name: 'calculateInvoiceTotal', description: 'Calculates total invoice amount, optionally filtered by status (unpaid, paid, overdue)', permission: 'invoices.read', enabled: true },
+      { name: 'calculateInvoiceTotal', description: 'Calculates total invoice amount, optionally filtered by status (paid, draft, sent, overdue)', permission: 'invoices.read', enabled: true },
       { name: 'getTopProducts', description: 'Returns top products by revenue. Optional args: {limit: number}', permission: 'orders.read', enabled: true },
       { name: 'calculateRevenueByRegion', description: 'Calculates total revenue grouped by region', permission: 'orders.read', enabled: true },
     ],
