@@ -39,9 +39,10 @@ userSchema.methods.comparePassword = async function (candidatePassword: string):
 // Never return password in JSON
 userSchema.set('toJSON', {
   transform: (_doc, ret) => {
-    delete ret.password;
+    ret['password'] = undefined;
     return ret;
   },
 });
+
 
 export const User = mongoose.model<IUser>('User', userSchema);

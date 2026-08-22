@@ -98,8 +98,9 @@ export class MongoDBAdapter implements DataAdapter {
       throw new Error(`Entity '${entity}' is not allowed`);
     }
     const model = getModel(entity);
-    return model.aggregate(pipeline) as Promise<Record<string, unknown>[]>;
+    return model.aggregate(pipeline as mongoose.PipelineStage[]) as Promise<Record<string, unknown>[]>;
   }
+
 
   async findById(entity: string, id: string): Promise<Record<string, unknown> | null> {
     if (!ALLOWED_ENTITIES.includes(entity.toLowerCase())) {

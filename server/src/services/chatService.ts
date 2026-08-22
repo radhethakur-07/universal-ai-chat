@@ -160,12 +160,13 @@ export async function processChat(
   conversation.messages.push({
     role: 'assistant',
     content: aiText,
-    responseType: uiResponseData?.type,
+    responseType: uiResponseData ? (uiResponseData as { type: string }).type : undefined,
     responseData: uiResponseData ? (uiResponseData as Record<string, unknown>) : undefined,
     toolsUsed,
     processingTime,
     timestamp: new Date(),
   });
+
 
   // Auto-title first message
   if (conversation.messages.length <= 2) {
@@ -176,12 +177,15 @@ export async function processChat(
 
   logger.info('Chat processed', { userId, conversationId: conversation._id, toolsUsed, processingTime, requestId });
 
+  const responseType = uiResponseData ? (uiResponseData as { type: string }).type : 'text';
+
   return {
     conversationId: conversation._id,
     message: aiText,
-    responseType: uiResponseData?.type || 'text',
+    responseType,
     responseData: uiResponseData,
     toolsUsed,
     processingTime,
   };
 }
+

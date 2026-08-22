@@ -13,10 +13,11 @@ export const queryParamsSchema = z.object({
   filters: z.array(filterConditionSchema).optional(),
   sortBy: z.string().max(100).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
-  limit: z.number().int().min(1).max(100).optional().default(20),
-  skip: z.number().int().min(0).optional().default(0),
+  limit: z.number().int().min(1).max(100).default(20),
+  skip: z.number().int().min(0).default(0),
   fields: z.array(z.string()).optional(),
 });
+
 
 export const updateParamsSchema = z.object({
   entity: z.string().min(1).max(100),

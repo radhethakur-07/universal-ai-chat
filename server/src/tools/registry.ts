@@ -125,6 +125,8 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
           ? [{ field: 'status', operator: 'eq' as const, value: statusFilter }]
           : [];
         const invoices = await adapter.query({ entity: 'invoices', filters, limit: 1000 });
+
+
         const total = invoices.reduce((sum, inv) => sum + ((inv.totalAmount as number) || 0), 0);
         return { functionName: 'calculateInvoiceTotal', result: { total: Math.round(total * 100) / 100, count: invoices.length, status: statusFilter || 'all' } };
       }
