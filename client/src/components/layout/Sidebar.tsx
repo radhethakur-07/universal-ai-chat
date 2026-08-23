@@ -100,9 +100,9 @@ export default function Sidebar({ open, onClose, onSelectConversation }: Props) 
         <div className="flex flex-col h-full w-64">
           {/* Header */}
           <div className="p-4 flex items-center justify-between flex-shrink-0 border-b border-gray-800/50">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-brand-600/20 rounded-lg border border-brand-500/30 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-brand-400" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 bg-brand-600/20 rounded-lg border border-brand-500/30 flex items-center justify-center p-1 shadow-sm">
+                <img src="/favicon.svg" alt="Dev Dynasty" className="w-full h-full object-contain" />
               </div>
               <span className="font-bold text-white text-sm">Universal AI</span>
             </div>

@@ -27,8 +27,8 @@ export default function WelcomeScreen() {
         {/* Hero */}
         <div className="relative inline-flex items-center justify-center mb-6">
           <div className="absolute inset-0 bg-brand-600/20 rounded-full blur-2xl scale-150" />
-          <div className="relative w-16 h-16 bg-gray-900 rounded-2xl border border-brand-500/30 flex items-center justify-center shadow-xl shadow-brand-900/30">
-            <Zap className="w-8 h-8 text-brand-400" />
+          <div className="relative w-16 h-16 bg-gray-900 rounded-2xl border border-brand-500/30 flex items-center justify-center shadow-xl shadow-brand-900/30 p-3">
+            <img src="/favicon.svg" alt="Dev Dynasty" className="w-10 h-10 object-contain drop-shadow-md" />
           </div>
         </div>
 

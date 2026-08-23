@@ -47,9 +47,9 @@ export default function TopBar({ onToggleSidebar }: Props) {
         <button onClick={onToggleSidebar} className="btn-ghost p-2" title="Toggle sidebar">
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-brand-600/20 rounded-lg border border-brand-500/30 flex items-center justify-center">
-            <Zap className="w-4 h-4 text-brand-400" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-brand-600/20 rounded-xl border border-brand-500/30 flex items-center justify-center p-1.5 shadow-sm">
+            <img src="/favicon.svg" alt="Dev Dynasty" className="w-full h-full object-contain" />
           </div>
           <span className="font-semibold text-white text-sm hidden sm:block">Universal AI</span>
         </div>

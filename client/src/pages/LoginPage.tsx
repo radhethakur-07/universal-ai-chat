@@ -48,8 +48,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-600/15 rounded-2xl border border-brand-500/25 mb-5 shadow-lg shadow-brand-900/20">
-            <Zap className="w-8 h-8 text-brand-400" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-600/15 rounded-2xl border border-brand-500/25 mb-5 shadow-lg shadow-brand-900/20 p-2.5">
+            <img src="/favicon.svg" alt="Dev Dynasty Logo" className="w-10 h-10 object-contain drop-shadow-md" />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Universal AI</h1>
           <p className="text-gray-500 text-sm">Smart India Hackathon 2026 · Dev Dynasty · PS12</p>
