@@ -64,40 +64,53 @@ function buildMongoFilter(filters?: QueryParams['filters']): Record<string, unkn
 
 /**
  * Builds a flexible ID query for record lookup and updates.
- * Safely handles string IDs (ORD-101, 101, etc.) without throwing CastError on _id.
+ * Matches exact IDs, uppercase, padded numbers, and handles legacy records.
  */
 function buildIdQuery(entity: string, recordId: string, projectId?: string): Record<string, unknown> {
   const singular = entityToModelName(entity);
   const idField = singular.charAt(0).toLowerCase() + singular.slice(1) + 'Id';
 
-  const conditions: Record<string, unknown>[] = [
-    { [idField]: recordId },
-    { [idField]: recordId.toUpperCase() },
-    { [idField]: new RegExp(`^${recordId}$`, 'i') },
+  const cleanId = (recordId || '').trim();
+  const idConditions: Record<string, unknown>[] = [
+    { [idField]: cleanId },
+    { [idField]: cleanId.toUpperCase() },
+    { [idField]: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
   ];
 
-  // Try extracting numeric portion: e.g. "101" -> "ORD-101" or "ORD-001"
-  const digits = recordId.replace(/[^0-9]/g, '');
+  // Try extracting numeric portion: e.g. "001" or "1" -> "ORD-001"
+  const digits = cleanId.replace(/[^0-9]/g, '');
   if (digits) {
-    conditions.push(
-      { [idField]: new RegExp(digits + '$', 'i') },
-      { [idField]: `ORD-${digits.padStart(3, '0')}` },
-      { [idField]: `PROD-${digits.padStart(3, '0')}` },
-      { [idField]: `CUST-${digits.padStart(3, '0')}` },
-      { [idField]: `INV-${digits.padStart(3, '0')}` }
+    const num = parseInt(digits, 10);
+    idConditions.push(
+      { [idField]: `ORD-${String(num).padStart(3, '0')}` },
+      { [idField]: `PROD-${String(num).padStart(3, '0')}` },
+      { [idField]: `CUST-${String(num).padStart(3, '0')}` },
+      { [idField]: `INV-${String(num).padStart(3, '0')}` },
+      { [idField]: { $regex: new RegExp(`0*${num}$`, 'i') } }
     );
   }
 
   // Only check MongoDB _id if recordId is a valid 24-character hexadecimal ObjectId
-  if (mongoose.isValidObjectId(recordId)) {
-    conditions.push({ _id: new mongoose.Types.ObjectId(recordId) });
+  if (mongoose.isValidObjectId(cleanId)) {
+    idConditions.push({ _id: new mongoose.Types.ObjectId(cleanId) });
   }
 
-  const query: Record<string, unknown> = { $or: conditions };
   if (projectId) {
-    query.project = new mongoose.Types.ObjectId(projectId);
+    return {
+      $and: [
+        { $or: idConditions },
+        {
+          $or: [
+            { project: new mongoose.Types.ObjectId(projectId) },
+            { project: { $exists: false } },
+            { project: null },
+          ],
+        },
+      ],
+    };
   }
-  return query;
+
+  return { $or: idConditions };
 }
 
 export class MongoDBAdapter implements DataAdapter {
@@ -105,7 +118,18 @@ export class MongoDBAdapter implements DataAdapter {
     const model = getModel(params.entity);
     const filter = buildMongoFilter(params.filters);
     if (projectId) {
-      filter.project = new mongoose.Types.ObjectId(projectId);
+      const projectClause = {
+        $or: [
+          { project: new mongoose.Types.ObjectId(projectId) },
+          { project: { $exists: false } },
+          { project: null },
+        ],
+      };
+      if (Object.keys(filter).length > 0) {
+        filter.$and = [{ ...filter }, projectClause];
+      } else {
+        Object.assign(filter, projectClause);
+      }
     }
     const sort: Record<string, 1 | -1> = {};
     if (params.sortBy) {
@@ -128,11 +152,31 @@ export class MongoDBAdapter implements DataAdapter {
 
     const doc = await model.findOneAndUpdate(
       query,
-      { $set: params.updates },
+      {
+        $set: {
+          ...params.updates,
+          ...(projectId ? { project: new mongoose.Types.ObjectId(projectId) } : {}),
+        },
+      },
       { new: true, lean: true }
     );
 
     if (!doc) {
+      // If scoped search failed, try finding without project scoping as fallback
+      const fallbackQuery = buildIdQuery(params.entity, params.recordId);
+      const fallbackDoc = await model.findOneAndUpdate(
+        fallbackQuery,
+        {
+          $set: {
+            ...params.updates,
+            ...(projectId ? { project: new mongoose.Types.ObjectId(projectId) } : {}),
+          },
+        },
+        { new: true, lean: true }
+      );
+      if (fallbackDoc) {
+        return { success: true, record: fallbackDoc as Record<string, unknown> };
+      }
       return { success: false, error: `Record '${params.recordId}' not found in ${params.entity}` };
     }
     return { success: true, record: doc as Record<string, unknown> };
@@ -165,16 +209,35 @@ export class MongoDBAdapter implements DataAdapter {
     const model = getModel(entity);
     const filter = buildMongoFilter(filters);
     if (projectId) {
-      filter.project = new mongoose.Types.ObjectId(projectId);
+      const projectClause = {
+        $or: [
+          { project: new mongoose.Types.ObjectId(projectId) },
+          { project: { $exists: false } },
+          { project: null },
+        ],
+      };
+      if (Object.keys(filter).length > 0) {
+        filter.$and = [{ ...filter }, projectClause];
+      } else {
+        Object.assign(filter, projectClause);
+      }
     }
     return model.countDocuments(filter);
   }
 
-  async aggregate(entity: string, pipeline: Record<string, unknown>[] , projectId?: string): Promise<Record<string, unknown>[]> {
+  async aggregate(entity: string, pipeline: Record<string, unknown>[], projectId?: string): Promise<Record<string, unknown>[]> {
     const model = getModel(entity);
     const scopedPipeline: Record<string, unknown>[] = [];
     if (projectId) {
-      scopedPipeline.push({ $match: { project: new mongoose.Types.ObjectId(projectId) } });
+      scopedPipeline.push({
+        $match: {
+          $or: [
+            { project: new mongoose.Types.ObjectId(projectId) },
+            { project: { $exists: false } },
+            { project: null },
+          ],
+        },
+      });
     }
     scopedPipeline.push(...pipeline);
     const stages = scopedPipeline as unknown as mongoose.PipelineStage[];

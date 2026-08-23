@@ -39,6 +39,16 @@ export async function syncLegacyIndexes(): Promise<void> {
       {},
       { $addToSet: { 'collections.$[].allowedOperations': { $each: ['read', 'create', 'update'] } } }
     );
+    const demoProj = await projCol.findOne({ slug: 'ecommerce-demo' });
+    if (demoProj) {
+      for (const colName of ['orders', 'customers', 'products', 'invoices']) {
+        const c = mongoose.connection.collection(colName);
+        await c.updateMany(
+          { project: { $exists: false } },
+          { $set: { project: demoProj._id } }
+        );
+      }
+    }
   } catch {
     // Safe to ignore
   }
