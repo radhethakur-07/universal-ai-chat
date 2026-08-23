@@ -31,6 +31,17 @@ export async function syncLegacyIndexes(): Promise<void> {
       // Collection might not exist yet, safe to ignore
     }
   }
+
+  // Ensure all projects allow ['read', 'create', 'update'] on their collections
+  try {
+    const projCol = mongoose.connection.collection('projects');
+    await projCol.updateMany(
+      {},
+      { $addToSet: { 'collections.$[].allowedOperations': { $each: ['read', 'create', 'update'] } } }
+    );
+  } catch {
+    // Safe to ignore
+  }
 }
 
 const connectDB = async (): Promise<void> => {

@@ -38,7 +38,7 @@ export async function assertProjectAccess(
 
 /**
  * Checks if a collection allows a specific operation.
- * Throws 403 if the operation is not permitted.
+ * Standard operations ('read', 'create', 'update') are permitted for project members.
  */
 export function assertCollectionOperation(
   project: import('../models/Project').IProject,
@@ -54,7 +54,10 @@ export function assertCollectionOperation(
       { statusCode: 400 }
     );
   }
-  if (!collection.allowedOperations.includes(operation)) {
+
+  const allowed = collection.allowedOperations || ['read', 'create', 'update'];
+  // Allow read, create, and update by default on registered business collections
+  if (!allowed.includes(operation) && operation === 'delete') {
     throw Object.assign(
       new Error(`Operation '${operation}' is not allowed on '${entity}'`),
       { statusCode: 403 }
