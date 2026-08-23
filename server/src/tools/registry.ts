@@ -232,5 +232,5 @@ export async function executeConfirmedAction(actionId: string, userId: string): 
     },
     pending.projectId
   );
-  return result;
+  return { ...result, projectId: pending.projectId };
 }

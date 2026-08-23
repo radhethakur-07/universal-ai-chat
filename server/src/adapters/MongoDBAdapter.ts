@@ -5,7 +5,7 @@ import { QueryParams, UpdateParams } from '../validators/schemas';
 /**
  * Converts a plural entity name to a Mongoose model name.
  * Domain-agnostic: works for any entity registered in Mongoose.
- * Examples: orders→Order, customers→Customer, invoices→Invoice, patients→Patient
+ * Examples: orders→Order, customers→Customer, invoices→Invoice, products→Product
  */
 function entityToModelName(entity: string): string {
   const lower = entity.toLowerCase().trim();
@@ -44,7 +44,6 @@ function buildMongoFilter(filters?: QueryParams['filters']): Record<string, unkn
   const query: Record<string, unknown> = {};
   for (const filter of filters) {
     const { field, operator, value } = filter;
-    // Try to parse numeric values for comparison operators
     const numVal = parseFloat(value as string);
     const isNum = !isNaN(numVal) && String(numVal) === String(value);
     const parsed = isNum ? numVal : value;
@@ -59,6 +58,44 @@ function buildMongoFilter(filters?: QueryParams['filters']): Record<string, unkn
       case 'contains': query[field] = { $regex: value, $options: 'i' }; break;
       case 'regex':    query[field] = { $regex: value, $options: 'i' }; break;
     }
+  }
+  return query;
+}
+
+/**
+ * Builds a flexible ID query for record lookup and updates.
+ * Safely handles string IDs (ORD-101, 101, etc.) without throwing CastError on _id.
+ */
+function buildIdQuery(entity: string, recordId: string, projectId?: string): Record<string, unknown> {
+  const singular = entityToModelName(entity);
+  const idField = singular.charAt(0).toLowerCase() + singular.slice(1) + 'Id';
+
+  const conditions: Record<string, unknown>[] = [
+    { [idField]: recordId },
+    { [idField]: recordId.toUpperCase() },
+    { [idField]: new RegExp(`^${recordId}$`, 'i') },
+  ];
+
+  // Try extracting numeric portion: e.g. "101" -> "ORD-101" or "ORD-001"
+  const digits = recordId.replace(/[^0-9]/g, '');
+  if (digits) {
+    conditions.push(
+      { [idField]: new RegExp(digits + '$', 'i') },
+      { [idField]: `ORD-${digits.padStart(3, '0')}` },
+      { [idField]: `PROD-${digits.padStart(3, '0')}` },
+      { [idField]: `CUST-${digits.padStart(3, '0')}` },
+      { [idField]: `INV-${digits.padStart(3, '0')}` }
+    );
+  }
+
+  // Only check MongoDB _id if recordId is a valid 24-character hexadecimal ObjectId
+  if (mongoose.isValidObjectId(recordId)) {
+    conditions.push({ _id: new mongoose.Types.ObjectId(recordId) });
+  }
+
+  const query: Record<string, unknown> = { $or: conditions };
+  if (projectId) {
+    query.project = new mongoose.Types.ObjectId(projectId);
   }
   return query;
 }
@@ -85,30 +122,18 @@ export class MongoDBAdapter implements DataAdapter {
     return docs as Record<string, unknown>[];
   }
 
-  async update(params: UpdateParams, projectId?: string): Promise<{ success: boolean; record?: Record<string, unknown> }> {
+  async update(params: UpdateParams, projectId?: string): Promise<{ success: boolean; record?: Record<string, unknown>; error?: string }> {
     const model = getModel(params.entity);
-    const singular = entityToModelName(params.entity);
-    const idField = singular.charAt(0).toLowerCase() + singular.slice(1) + 'Id';
-    const query: Record<string, unknown> = { [idField]: params.recordId };
-    if (projectId) {
-      query.project = new mongoose.Types.ObjectId(projectId);
-    }
+    const query = buildIdQuery(params.entity, params.recordId, projectId);
 
     const doc = await model.findOneAndUpdate(
       query,
       { $set: params.updates },
       { new: true, lean: true }
     );
+
     if (!doc) {
-      const byObjectIdQuery: Record<string, unknown> = { _id: params.recordId };
-      if (projectId) byObjectIdQuery.project = new mongoose.Types.ObjectId(projectId);
-      const byObjectId = await model.findOneAndUpdate(
-        byObjectIdQuery,
-        { $set: params.updates },
-        { new: true, lean: true }
-      );
-      if (!byObjectId) return { success: false };
-      return { success: true, record: byObjectId as Record<string, unknown> };
+      return { success: false, error: `Record '${params.recordId}' not found in ${params.entity}` };
     }
     return { success: true, record: doc as Record<string, unknown> };
   }
@@ -145,7 +170,7 @@ export class MongoDBAdapter implements DataAdapter {
     return model.countDocuments(filter);
   }
 
-  async aggregate(entity: string, pipeline: Record<string, unknown>[], projectId?: string): Promise<Record<string, unknown>[]> {
+  async aggregate(entity: string, pipeline: Record<string, unknown>[] , projectId?: string): Promise<Record<string, unknown>[]> {
     const model = getModel(entity);
     const scopedPipeline: Record<string, unknown>[] = [];
     if (projectId) {
@@ -159,15 +184,8 @@ export class MongoDBAdapter implements DataAdapter {
 
   async findById(entity: string, id: string, projectId?: string): Promise<Record<string, unknown> | null> {
     const model = getModel(entity);
-    const singular = entityToModelName(entity);
-    const idField = singular.charAt(0).toLowerCase() + singular.slice(1) + 'Id';
-    const query: Record<string, unknown> = { [idField]: id };
-    if (projectId) {
-      query.project = new mongoose.Types.ObjectId(projectId);
-    }
-    const doc =
-      (await model.findOne(query).lean()) ??
-      (await model.findOne({ _id: id, ...(projectId ? { project: new mongoose.Types.ObjectId(projectId) } : {}) }).lean());
+    const query = buildIdQuery(entity, id, projectId);
+    const doc = await model.findOne(query).lean();
     return doc as Record<string, unknown> | null;
   }
 }

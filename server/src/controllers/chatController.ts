@@ -35,16 +35,19 @@ export const confirmAction = async (req: Request, res: Response): Promise<void> 
       res.status(400).json({ error: result.error || 'Action failed' });
       return;
     }
-    await AuditLog.create({
-      user: userId,
-      project: req.body.projectId,
-      action: 'confirm_update',
-      success: true,
-      metadata: { actionId, record: result.record },
-    });
+    const targetProject = (result as any).projectId || req.body.projectId;
+    if (targetProject) {
+      await AuditLog.create({
+        user: userId,
+        project: targetProject,
+        action: 'confirm_update',
+        success: true,
+        metadata: { actionId, record: result.record },
+      }).catch((e) => logger.warn('AuditLog creation warning', e));
+    }
     res.json({ message: 'Action completed successfully.', record: result.record, responseType: 'text' });
   } catch (error) {
     logger.error('Confirm action error', { userId, error: (error as Error).message });
-    res.status(500).json({ error: 'Failed to execute action' });
+    res.status(500).json({ error: (error as Error).message || 'Failed to execute action' });
   }
 };
