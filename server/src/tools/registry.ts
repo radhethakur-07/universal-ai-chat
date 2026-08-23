@@ -211,7 +211,7 @@ export const toolHandlers: Record<string, (args: Record<string, unknown>, userId
   },
 };
 
-export async function executeConfirmedAction(actionId: string, userId: string): Promise<{ success: boolean; record?: Record<string, unknown>; error?: string }> {
+export async function executeConfirmedAction(actionId: string, userId: string): Promise<{ success: boolean; record?: Record<string, unknown>; error?: string; projectId?: string }> {
   const pending = pendingConfirmations.get(actionId);
   if (!pending) {
     return { success: false, error: 'Confirmation not found or expired' };
