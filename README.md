@@ -105,8 +105,6 @@ universal-ai-chat/
 │
 ├── README.md
 ├── DEPLOYMENT.md
-├── ARCHITECTURE.md
-└── JUDGES.md
 ```
 
 ---
@@ -176,7 +174,6 @@ This creates:
 |------|-------------|
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Step-by-step production deployment |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Complete technical architecture |
-| [JUDGES.md](./JUDGES.md) | SIH judge Q&A |
 
 ---
 
